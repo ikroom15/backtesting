@@ -1,21 +1,24 @@
 """
-Portable Backtester — Support BTC, XAU, Forex, Indeks, Crypto, dll.
-Deteksi otomatis instrumen, konfigurasi point size & value-per-point.
-Jalankan: python backtest.py --csv data.csv
+Portable Backtester — Multi instrument + Modal Awal + Risk Sizing + Date Range
 """
 import argparse
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 # ============ KONFIGURASI ============
 @dataclass
 class Config:
-    # Instrument metadata
+    # Instrument
     symbol_name: str = "UNKNOWN"
-    point_size: float = 0.01               # 1 poin = 0.01 harga (BTC/XAU)
-    value_per_point_per_lot: float = 0.01  # USD nilai 1 poin × 1 lot
+    point_size: float = 0.01
+    value_per_point_per_lot: float = 0.01
+
+    # Capital & Sizing
+    initial_capital: float = 1000.0
+    sizing_mode: str = "fixed"          # "fixed" | "risk"
+    risk_per_trade_pct: float = 1.0     # untuk risk mode
+    lot: float = 1.0                    # untuk fixed mode / fallback
 
     # Filter entry
     rsi_period: int = 14
@@ -26,83 +29,42 @@ class Config:
     min_candles: int = 60
     swing_lookback: int = 3
 
-    # SL/TP (dalam poin)
+    # SL/TP
     fixed_sl_points: int = 3000
     fixed_tp_points: int = 6000
 
-    # Trailing (dalam poin)
+    # Trailing
     trailing_activation_points: int = 3000
     trailing_gap_points: int = 1500
     trailing_step: int = 100
 
-    # Position
-    lot: float = 1.0
+    # Safety & eksekusi
     hard_lock_seconds: int = 300
-
-    # Eksekusi
     entry_at_next_open: bool = True
     spread_points: float = 0.0
 
 # ============ PRESET INSTRUMEN ============
 INSTRUMENT_PRESETS = {
-    "BTCUSD": dict(point_size=0.01, value_per_point_per_lot=0.01,
-                   fixed_sl_points=3000, fixed_tp_points=6000,
-                   trailing_activation_points=3000, trailing_gap_points=1500,
-                   lot=1.0),
-    "ETHUSD": dict(point_size=0.01, value_per_point_per_lot=0.01,
-                   fixed_sl_points=3000, fixed_tp_points=6000,
-                   trailing_activation_points=3000, trailing_gap_points=1500,
-                   lot=1.0),
-    "XAUUSD": dict(point_size=0.01, value_per_point_per_lot=1.0,
-                   fixed_sl_points=3000, fixed_tp_points=6000,
-                   trailing_activation_points=3000, trailing_gap_points=1500,
-                   lot=0.01),
-    "XAGUSD": dict(point_size=0.001, value_per_point_per_lot=5.0,
-                   fixed_sl_points=500, fixed_tp_points=1000,
-                   trailing_activation_points=500, trailing_gap_points=250,
-                   lot=0.10),
-    "EURUSD": dict(point_size=0.00001, value_per_point_per_lot=1.0,
-                   fixed_sl_points=500, fixed_tp_points=1000,
-                   trailing_activation_points=500, trailing_gap_points=250,
-                   lot=0.10),
-    "GBPUSD": dict(point_size=0.00001, value_per_point_per_lot=1.0,
-                   fixed_sl_points=500, fixed_tp_points=1000,
-                   trailing_activation_points=500, trailing_gap_points=250,
-                   lot=0.10),
-    "AUDUSD": dict(point_size=0.00001, value_per_point_per_lot=1.0,
-                   fixed_sl_points=500, fixed_tp_points=1000,
-                   trailing_activation_points=500, trailing_gap_points=250,
-                   lot=0.10),
-    "USDJPY": dict(point_size=0.001, value_per_point_per_lot=0.67,
-                   fixed_sl_points=500, fixed_tp_points=1000,
-                   trailing_activation_points=500, trailing_gap_points=250,
-                   lot=0.10),
-    "US30":   dict(point_size=0.1, value_per_point_per_lot=0.1,
-                   fixed_sl_points=3000, fixed_tp_points=6000,
-                   trailing_activation_points=3000, trailing_gap_points=1500,
-                   lot=0.10),
-    "NAS100": dict(point_size=0.1, value_per_point_per_lot=0.1,
-                   fixed_sl_points=3000, fixed_tp_points=6000,
-                   trailing_activation_points=3000, trailing_gap_points=1500,
-                   lot=0.10),
-    "SPX500": dict(point_size=0.1, value_per_point_per_lot=0.1,
-                   fixed_sl_points=3000, fixed_tp_points=6000,
-                   trailing_activation_points=3000, trailing_gap_points=1500,
-                   lot=0.10),
+    "BTCUSD": dict(point_size=0.01,    value_per_point_per_lot=0.01, fixed_sl_points=3000, fixed_tp_points=6000, trailing_activation_points=3000, trailing_gap_points=1500, lot=1.0),
+    "ETHUSD": dict(point_size=0.01,    value_per_point_per_lot=0.01, fixed_sl_points=3000, fixed_tp_points=6000, trailing_activation_points=3000, trailing_gap_points=1500, lot=1.0),
+    "XAUUSD": dict(point_size=0.01,    value_per_point_per_lot=1.0,  fixed_sl_points=3000, fixed_tp_points=6000, trailing_activation_points=3000, trailing_gap_points=1500, lot=0.01),
+    "XAGUSD": dict(point_size=0.001,   value_per_point_per_lot=5.0,  fixed_sl_points=500,  fixed_tp_points=1000, trailing_activation_points=500,  trailing_gap_points=250,  lot=0.10),
+    "EURUSD": dict(point_size=0.00001, value_per_point_per_lot=1.0,  fixed_sl_points=500,  fixed_tp_points=1000, trailing_activation_points=500,  trailing_gap_points=250,  lot=0.10),
+    "GBPUSD": dict(point_size=0.00001, value_per_point_per_lot=1.0,  fixed_sl_points=500,  fixed_tp_points=1000, trailing_activation_points=500,  trailing_gap_points=250,  lot=0.10),
+    "AUDUSD": dict(point_size=0.00001, value_per_point_per_lot=1.0,  fixed_sl_points=500,  fixed_tp_points=1000, trailing_activation_points=500,  trailing_gap_points=250,  lot=0.10),
+    "USDJPY": dict(point_size=0.001,   value_per_point_per_lot=0.67, fixed_sl_points=500,  fixed_tp_points=1000, trailing_activation_points=500,  trailing_gap_points=250,  lot=0.10),
+    "US30":   dict(point_size=0.1,     value_per_point_per_lot=0.1,  fixed_sl_points=3000, fixed_tp_points=6000, trailing_activation_points=3000, trailing_gap_points=1500, lot=0.10),
+    "NAS100": dict(point_size=0.1,     value_per_point_per_lot=0.1,  fixed_sl_points=3000, fixed_tp_points=6000, trailing_activation_points=3000, trailing_gap_points=1500, lot=0.10),
+    "SPX500": dict(point_size=0.1,     value_per_point_per_lot=0.1,  fixed_sl_points=3000, fixed_tp_points=6000, trailing_activation_points=3000, trailing_gap_points=1500, lot=0.10),
 }
 
-# ============ AUTO-DETECT INSTRUMEN ============
 def auto_detect_instrument(df: pd.DataFrame) -> str:
-    """Tebak instrumen dari range harga."""
     if len(df) == 0: return "UNKNOWN"
     med = df['close'].median()
-    decimals = 0
     sample = str(df['close'].iloc[-1])
-    if '.' in sample:
-        decimals = len(sample.split('.')[1])
+    decimals = len(sample.split('.')[1]) if '.' in sample else 0
     if med > 20000: return "BTCUSD"
-    if 3000 < med < 20000:
-        return "ETHUSD" if med < 10000 else "BTCUSD"
+    if 3000 < med < 20000: return "ETHUSD" if med < 10000 else "BTCUSD"
     if 1500 < med < 3000: return "XAUUSD"
     if 100 < med < 200 and decimals >= 3: return "USDJPY"
     if 15 < med < 60: return "XAGUSD"
@@ -110,7 +72,6 @@ def auto_detect_instrument(df: pd.DataFrame) -> str:
     return "UNKNOWN"
 
 def apply_preset(cfg: Config, name: str) -> Config:
-    """Apply preset ke config."""
     if name not in INSTRUMENT_PRESETS: return cfg
     p = INSTRUMENT_PRESETS[name]
     cfg.symbol_name = name
@@ -121,8 +82,6 @@ def apply_preset(cfg: Config, name: str) -> Config:
 def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df.columns = [str(c).lower().strip() for c in df.columns]
-
-    # Handle MT4/MT5 format: Date + Time terpisah
     if ('date' in df.columns and 'time' in df.columns
             and 'datetime' not in df.columns and 'timestamp' not in df.columns):
         sample_t = str(df['time'].iloc[0]) if len(df) > 0 else ''
@@ -130,24 +89,17 @@ def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
             d = df['date'].astype(str).str.replace('.', '-', regex=False).str.replace('/', '-', regex=False)
             df['datetime'] = pd.to_datetime(d + ' ' + df['time'].astype(str), errors='coerce')
             df = df.drop(columns=['date', 'time'])
-
-    rename_map = {
-        'o':'open','h':'high','l':'low','c':'close','vol':'volume',
-        'tanggal':'time','date':'time','datetime':'time','timestamp':'time',
-        'adj close':'close','adj_close':'close',
-    }
+    rename_map = {'o':'open','h':'high','l':'low','c':'close','vol':'volume',
+                  'tanggal':'time','date':'time','datetime':'time','timestamp':'time',
+                  'adj close':'close','adj_close':'close'}
     df = df.rename(columns={k:v for k,v in rename_map.items() if k in df.columns and k != v})
-
     for col in ['open','high','low','close']:
         if col not in df.columns:
-            raise ValueError(f"Kolom wajib tidak ditemukan: {col}. Kolom tersedia: {list(df.columns)}")
-
+            raise ValueError(f"Kolom wajib tidak ditemukan: {col}")
     if 'volume' not in df.columns: df['volume'] = 0
-    if 'time' not in df.columns:   df['time'] = df.index
-
+    if 'time' not in df.columns: df['time'] = df.index
     try: df['time'] = pd.to_datetime(df['time'], errors='coerce')
     except: pass
-
     df = df[['time','open','high','low','close','volume']].copy()
     for c in ['open','high','low','close','volume']:
         df[c] = pd.to_numeric(df[c], errors='coerce')
@@ -163,6 +115,16 @@ def load_yfinance(ticker='BTC-USD', period='2y', interval='1h') -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     return normalize_df(df.reset_index())
+
+def filter_by_date(df: pd.DataFrame, start=None, end=None) -> pd.DataFrame:
+    """Filter df berdasarkan start/end (string YYYY-MM-DD)."""
+    df = df.copy()
+    if start:
+        df = df[df['time'] >= pd.to_datetime(start)]
+    if end:
+        end_dt = pd.to_datetime(end) + pd.Timedelta(days=1)  # include full end day
+        df = df[df['time'] < end_dt]
+    return df.reset_index(drop=True)
 
 # ============ INDIKATOR ============
 def compute_rsi(series, period=14):
@@ -222,28 +184,42 @@ def run_backtest(df: pd.DataFrame, cfg: Config):
     swing_h, swing_l = find_swings(df, cfg.swing_lookback)
 
     n = len(df)
-    trades, equity_curve = [], np.zeros(n)
-    equity = 0.0; position = None; pending = None
+    trades = []
+    equity_curve = np.full(n, cfg.initial_capital)  # capital tracking
+    capital = cfg.initial_capital
+    position = None; pending = None
     last_open_time = None; sh_ptr = sl_ptr = 0
     point = cfg.point_size; vpp = cfg.value_per_point_per_lot
+
+    def calc_lot(current_capital):
+        if cfg.sizing_mode == "risk" and cfg.risk_per_trade_pct > 0:
+            risk_usd = current_capital * (cfg.risk_per_trade_pct / 100)
+            sl_risk_per_lot = cfg.fixed_sl_points * vpp
+            if sl_risk_per_lot > 0 and risk_usd > 0:
+                return max(0.01, round(risk_usd / sl_risk_per_lot, 2))
+        return cfg.lot
 
     for i in range(n):
         bar = df.iloc[i]
         bar_time = bar['time'] if isinstance(bar['time'], pd.Timestamp) else pd.Timestamp(bar['time'])
 
+        # Entry pending
         if pending is not None and position is None:
             entry = bar['open']
             if pending['action'] == 'buy':
                 sl = entry - cfg.fixed_sl_points*point; tp = entry + cfg.fixed_tp_points*point
             else:
                 sl = entry + cfg.fixed_sl_points*point; tp = entry - cfg.fixed_tp_points*point
+            lot_used = calc_lot(capital)
             position = dict(direction=pending['action'], entry=entry,
                             original_sl=sl, current_sl=sl, tp=tp,
                             entry_bar=i, entry_time=bar_time, peak=entry,
                             trailing_active=False, pattern=pending['pattern'],
-                            trend=pending['trend'], rsi=pending['rsi'])
+                            trend=pending['trend'], rsi=pending['rsi'],
+                            lot_used=lot_used)
             pending = None; last_open_time = bar_time
 
+        # Manage position
         if position is not None:
             exit_price, reason = None, None
             sl, tp = position['current_sl'], position['tp']
@@ -262,7 +238,8 @@ def run_backtest(df: pd.DataFrame, cfg: Config):
                 pts = (exit_price - position['entry'])/point if position['direction']=='buy' \
                       else (position['entry'] - exit_price)/point
                 pts -= cfg.spread_points
-                usd = pts * vpp * cfg.lot
+                usd = pts * vpp * position['lot_used']
+                capital += usd
                 trades.append(dict(
                     trade_id=len(trades)+1,
                     open_time=position['entry_time'], close_time=bar_time,
@@ -270,10 +247,10 @@ def run_backtest(df: pd.DataFrame, cfg: Config):
                     entry=position['entry'], sl=position['original_sl'],
                     tp=position['tp'], exit_price=exit_price,
                     exit_reason=reason, points=pts, usd=usd,
+                    lot=position['lot_used'], capital_after=capital,
                     duration_bars=i - position['entry_bar'],
                     pattern=position['pattern'], trend=position['trend'],
                     rsi_at_entry=position['rsi']))
-                equity += usd
                 position = None
             else:
                 if position['direction'] == 'buy':
@@ -295,8 +272,9 @@ def run_backtest(df: pd.DataFrame, cfg: Config):
                         if new_sl < position['current_sl'] - cfg.trailing_step*point:
                             position['current_sl'] = new_sl
 
-        equity_curve[i] = equity
+        equity_curve[i] = capital
 
+        # Signals
         if position is not None or pending is not None: continue
         if i < cfg.min_candles: continue
         if last_open_time is not None and (bar_time - last_open_time).total_seconds() < cfg.hard_lock_seconds:
@@ -329,37 +307,48 @@ def run_backtest(df: pd.DataFrame, cfg: Config):
                 sl = entry - cfg.fixed_sl_points*point; tp = entry + cfg.fixed_tp_points*point
             else:
                 sl = entry + cfg.fixed_sl_points*point; tp = entry - cfg.fixed_tp_points*point
-            position = dict(direction=action, entry=entry, original_sl=sl, current_sl=sl, tp=tp,
-                            entry_bar=i, entry_time=bar_time, peak=entry, trailing_active=False,
-                            pattern=pattern, trend=trend, rsi=rsi_val)
+            lot_used = calc_lot(capital)
+            position = dict(direction=action, entry=entry, original_sl=sl,
+                            current_sl=sl, tp=tp, entry_bar=i, entry_time=bar_time,
+                            peak=entry, trailing_active=False,
+                            pattern=pattern, trend=trend, rsi=rsi_val,
+                            lot_used=lot_used)
             last_open_time = bar_time
 
+    # Force close terakhir
     if position is not None:
         exit_price = df.iloc[-1]['close']
         pts = (exit_price - position['entry'])/point if position['direction']=='buy' \
               else (position['entry'] - exit_price)/point
-        usd = pts * vpp * cfg.lot
+        usd = pts * vpp * position['lot_used']
+        capital += usd
         trades.append(dict(
             trade_id=len(trades)+1, open_time=position['entry_time'],
             close_time=df.iloc[-1]['time'], direction=position['direction'],
             entry=position['entry'], sl=position['original_sl'], tp=position['tp'],
             exit_price=exit_price, exit_reason='END', points=pts, usd=usd,
+            lot=position['lot_used'], capital_after=capital,
             duration_bars=n-1-position['entry_bar'],
             pattern=position['pattern'], trend=position['trend'],
             rsi_at_entry=position['rsi']))
 
     trades_df = pd.DataFrame(trades)
-    metrics = compute_metrics(trades_df, equity_curve)
+    metrics = compute_metrics(trades_df, equity_curve, cfg.initial_capital)
     return trades_df, metrics, equity_curve
 
-def compute_metrics(trades_df, equity_curve):
+def compute_metrics(trades_df, equity_curve, initial_capital):
+    base = {k: 0 for k in ['total_trades','wins','losses','breakeven','win_rate',
+                            'total_points','total_usd','avg_win','avg_loss',
+                            'profit_factor','expectancy','max_drawdown_usd',
+                            'max_drawdown_pct','sharpe','best_trade','worst_trade',
+                            'max_win_streak','max_loss_streak']}
+    base['initial_capital'] = initial_capital
+    base['final_capital'] = initial_capital
+    base['return_pct'] = 0
     if trades_df is None or len(trades_df) == 0:
-        return {k: 0 for k in ['total_trades','wins','losses','breakeven','win_rate',
-                                'total_points','total_usd','avg_win','avg_loss',
-                                'profit_factor','expectancy','max_drawdown_usd',
-                                'max_drawdown_pct','sharpe','best_trade','worst_trade',
-                                'max_win_streak','max_loss_streak']}
-    usd, pts = trades_df['usd'].values, trades_df['points'].values
+        return base
+    usd = trades_df['usd'].values
+    pts = trades_df['points'].values
     wins, losses = usd > 0, usd < 0
     n_w, n_l, n_be = int(wins.sum()), int(losses.sum()), int((usd==0).sum())
     total = len(usd)
@@ -375,7 +364,10 @@ def compute_metrics(trades_df, equity_curve):
     for u in usd:
         if u > 0: cur_w += 1; cur_l = 0; max_w = max(max_w, cur_w)
         elif u < 0: cur_l += 1; cur_w = 0; max_l = max(max_l, cur_l)
-    return dict(total_trades=total, wins=n_w, losses=n_l, breakeven=n_be,
+    final_capital = initial_capital + usd.sum()
+    return_pct = (final_capital - initial_capital) / initial_capital * 100 if initial_capital > 0 else 0
+    return dict(
+        total_trades=total, wins=n_w, losses=n_l, breakeven=n_be,
         win_rate=n_w/total*100 if total else 0,
         total_points=pts.sum(), total_usd=usd.sum(),
         avg_win=usd[wins].mean() if n_w else 0,
@@ -384,7 +376,10 @@ def compute_metrics(trades_df, equity_curve):
         max_drawdown_usd=max_dd, max_drawdown_pct=max_dd_pct,
         sharpe=sharpe, best_trade=usd.max() if total else 0,
         worst_trade=usd.min() if total else 0,
-        max_win_streak=max_w, max_loss_streak=max_l)
+        max_win_streak=max_w, max_loss_streak=max_l,
+        initial_capital=initial_capital,
+        final_capital=final_capital,
+        return_pct=return_pct)
 
 # ============ CLI ============
 def print_report(metrics, cfg, data_info=""):
@@ -392,20 +387,19 @@ def print_report(metrics, cfg, data_info=""):
     print(f"  HASIL BACKTEST  |  {cfg.symbol_name}")
     print("="*60)
     if data_info: print(f"  Data: {data_info}")
-    print(f"  Point: {cfg.point_size} | Value/point/lot: ${cfg.value_per_point_per_lot}")
-    print(f"  Lot: {cfg.lot} | SL: {cfg.fixed_sl_points}p | TP: {cfg.fixed_tp_points}p")
+    print(f"  Modal Awal       : ${cfg.initial_capital:.2f}")
+    print(f"  Modal Akhir      : ${metrics['final_capital']:.2f}")
+    print(f"  Return           : {metrics['return_pct']:+.2f}%")
+    print(f"  Sizing           : {cfg.sizing_mode}" + (f" ({cfg.risk_per_trade_pct}%/trade)" if cfg.sizing_mode=="risk" else f" ({cfg.lot} lot)"))
     print("-"*60)
     print(f"  Total Trades     : {metrics['total_trades']}")
     print(f"  Win / Loss / BE  : {metrics['wins']} / {metrics['losses']} / {metrics['breakeven']}")
     print(f"  Win Rate         : {metrics['win_rate']:.2f}%")
-    print(f"  Total Poin       : {metrics['total_points']:+.0f} poin")
-    print(f"  Total P/L (USD)  : {metrics['total_usd']:+.2f} USD")
-    print(f"  Avg Win          : {metrics['avg_win']:+.2f} USD")
-    print(f"  Avg Loss         : {metrics['avg_loss']:+.2f} USD")
+    print(f"  Total P/L (USD)  : {metrics['total_usd']:+.2f}")
     print(f"  Profit Factor    : {metrics['profit_factor']:.2f}")
-    print(f"  Expectancy       : {metrics['expectancy']:+.2f} USD/trade")
-    print(f"  Max Drawdown     : {metrics['max_drawdown_usd']:.2f} USD ({metrics['max_drawdown_pct']:.2f}%)")
-    print(f"  Sharpe (rough)   : {metrics['sharpe']:.2f}")
+    print(f"  Expectancy       : {metrics['expectancy']:+.2f}/trade")
+    print(f"  Max Drawdown     : {metrics['max_drawdown_usd']:.2f} ({metrics['max_drawdown_pct']:.2f}%)")
+    print(f"  Sharpe           : {metrics['sharpe']:.2f}")
     print("="*60 + "\n")
 
 def main():
@@ -414,12 +408,15 @@ def main():
     p.add_argument('--ticker', default='BTC-USD')
     p.add_argument('--period', default='2y')
     p.add_argument('--interval', default='1h')
-    p.add_argument('--symbol', default=None, help='Preset instrumen (BTCUSD, XAUUSD, EURUSD, ...)')
+    p.add_argument('--symbol', default=None)
+    p.add_argument('--capital', type=float, default=1000.0, help='Modal awal (USD)')
+    p.add_argument('--sizing', choices=['fixed','risk'], default='fixed')
+    p.add_argument('--risk-pct', type=float, default=1.0)
     p.add_argument('--lot', type=float, default=None)
     p.add_argument('--sl', type=int, default=None)
     p.add_argument('--tp', type=int, default=None)
-    p.add_argument('--point-size', type=float, default=None)
-    p.add_argument('--value-per-point', type=float, default=None)
+    p.add_argument('--start', type=str, default=None, help='YYYY-MM-DD')
+    p.add_argument('--end', type=str, default=None, help='YYYY-MM-DD')
     p.add_argument('--out-trades', default='backtest_trades.csv')
     args = p.parse_args()
 
@@ -428,31 +425,25 @@ def main():
         df = load_csv(args.csv); info = f"CSV: {args.csv}"
     else:
         df = load_yfinance(args.ticker, args.period, args.interval)
-        info = f"yfinance: {args.ticker} {args.period} {args.interval}"
-    if len(df) < 100:
-        print(f"⚠️  Data terlalu sedikit ({len(df)} bar)."); return
-    print(f"✅ {len(df)} bar | {df['time'].iloc[0]} → {df['time'].iloc[-1]}")
+        info = f"yfinance: {args.ticker}"
+    print(f"✅ {len(df)} bar | {df['time'].min()} → {df['time'].max()}")
+    df = filter_by_date(df, args.start, args.end)
+    print(f"📅 Setelah filter: {len(df)} bar | {df['time'].min()} → {df['time'].max()}")
 
-    cfg = Config()
-    preset_name = args.symbol or auto_detect_instrument(df)
-    if preset_name in INSTRUMENT_PRESETS:
-        apply_preset(cfg, preset_name)
-        print(f"🎯 Preset terdeteksi: {preset_name}")
-    else:
-        cfg.symbol_name = "CUSTOM"
-        print("⚠️  Instrumen tidak terdeteksi — pakai default BTC")
-
+    cfg = Config(initial_capital=args.capital, sizing_mode=args.sizing,
+                 risk_per_trade_pct=args.risk_pct)
+    preset = args.symbol or auto_detect_instrument(df)
+    if preset in INSTRUMENT_PRESETS:
+        apply_preset(cfg, preset); print(f"🎯 Preset: {preset}")
     if args.lot is not None: cfg.lot = args.lot
     if args.sl is not None: cfg.fixed_sl_points = args.sl
     if args.tp is not None: cfg.fixed_tp_points = args.tp
-    if args.point_size is not None: cfg.point_size = args.point_size
-    if args.value_per_point is not None: cfg.value_per_point_per_lot = args.value_per_point
 
     trades, metrics, eq = run_backtest(df, cfg)
     print_report(metrics, cfg, info)
     if len(trades) > 0:
         trades.to_csv(args.out_trades, index=False)
-        print(f"✅ Trade detail disimpan: {args.out_trades}")
+        print(f"✅ Trade detail: {args.out_trades}")
 
 if __name__ == '__main__':
     main()
