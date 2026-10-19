@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌍 Portable Backtester — Paste Bot Code</title>
+<title>🌍 Portable Backtester — Modal & Date Range</title>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -22,7 +22,6 @@ h1 .accent{color:var(--accent)}
 .status.success{border-color:var(--green);color:var(--green)}
 .status.error{border-color:var(--red);color:var(--red)}
 .status.loading{border-color:var(--accent);color:var(--accent)}
-.status.info{border-color:var(--blue);color:#a8b8ff}
 .upload-area{border:2px dashed var(--border);border-radius:12px;padding:2rem;text-align:center;transition:all .2s;cursor:pointer;margin-bottom:1rem}
 .upload-area:hover{border-color:var(--accent);background:rgba(247,147,26,.05)}
 .upload-area.dragover{border-color:var(--accent);background:rgba(247,147,26,.1)}
@@ -37,8 +36,9 @@ h1 .accent{color:var(--accent)}
 .btn.secondary{background:#1a1d26;color:var(--text);border:1px solid var(--border)}
 .btn.secondary:hover:not(:disabled){background:#222735}
 .btn.green{background:var(--green);color:#fff}
+.btn.sm{padding:.4rem .8rem;font-size:.8rem}
 .btn-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
-textarea.bot-code{width:100%;min-height:280px;background:#0d0f14;color:#e4e6eb;border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:'Consolas','Monaco','Courier New',monospace;font-size:.85rem;line-height:1.5;resize:vertical}
+textarea.bot-code{width:100%;min-height:240px;background:#0d0f14;color:#e4e6eb;border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:'Consolas','Monaco',monospace;font-size:.85rem;line-height:1.5;resize:vertical}
 textarea.bot-code:focus{outline:none;border-color:var(--accent)}
 .params-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-top:1rem}
 .param label{display:block;color:var(--muted);font-size:.72rem;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.05em}
@@ -46,15 +46,17 @@ textarea.bot-code:focus{outline:none;border-color:var(--accent)}
 .param input:focus,.param select:focus{outline:none;border-color:var(--accent)}
 .param input.extracted{border-color:var(--green);background:rgba(22,199,132,.05)}
 .param small{display:block;color:var(--muted);font-size:.7rem;margin-top:.25rem}
-details summary{cursor:pointer;color:var(--accent);font-size:.9rem;margin-bottom:1rem;user-select:none;font-weight:600}
-details[open] summary{margin-bottom:1rem}
+.tab-row{display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:.5rem}
+.tab-btn{background:transparent;border:none;color:var(--muted);padding:.5rem 1rem;font-size:.9rem;cursor:pointer;border-radius:6px;font-weight:600}
+.tab-btn.active{background:rgba(247,147,26,.15);color:var(--accent)}
 .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1rem;margin:1.5rem 0}
 .metric-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem}
+.metric-card.highlight{border-color:var(--accent);background:linear-gradient(135deg, rgba(247,147,26,.08), transparent)}
 .metric-label{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
 .metric-value{font-size:1.6rem;font-weight:700;margin-top:.4rem;word-break:break-word}
 .metric-value.green{color:var(--green)}
 .metric-value.red{color:var(--red)}
-.chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;height:380px;margin-bottom:1.5rem}
+.chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;height:420px;margin-bottom:1.5rem}
 .trades-container{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:auto;max-height:500px}
 table{width:100%;border-collapse:collapse;font-size:.85rem}
 th{background:#1a1d26;color:var(--muted);text-align:left;padding:.75rem 1rem;position:sticky;top:0;font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;z-index:1}
@@ -72,83 +74,127 @@ tr:hover{background:rgba(255,255,255,.02)}
 .extracted-list.active{display:block}
 .extracted-list h4{color:var(--green);margin-bottom:.5rem;font-size:.85rem}
 .extracted-list code{background:#0d0f14;padding:.15rem .4rem;border-radius:4px;color:#e4e6eb;font-size:.8rem;display:inline-block;margin:.15rem .15rem 0 0}
-.tab-row{display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:.5rem}
-.tab-btn{background:transparent;border:none;color:var(--muted);padding:.5rem 1rem;font-size:.9rem;cursor:pointer;border-radius:6px;font-weight:600}
-.tab-btn.active{background:rgba(247,147,26,.15);color:var(--accent)}
+.preset-buttons{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
+.preset-buttons .btn{padding:.45rem .9rem;font-size:.85rem}
+.capital-hero{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center;margin:1rem 0}
+.capital-box{text-align:center;padding:1rem;background:#1a1d26;border-radius:8px}
+.capital-box .lbl{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.capital-box .val{font-size:1.8rem;font-weight:700;margin-top:.25rem}
+.capital-arrow{font-size:2rem;color:var(--accent)}
 </style>
 </head>
 <body>
 <div class="container">
   <header>
     <h1>🌍 <span class="accent">Portable</span> Backtester</h1>
-    <p class="subtitle">Paste bot code Anda atau isi parameter manual — semua di browser, data tidak dikirim ke server</p>
+    <p class="subtitle">Modal awal · Date range · Risk sizing · Multi instrumen · Semua di browser</p>
   </header>
 
   <div id="status" class="status loading">⏳ Memuat Python environment... (~30-60 detik pertama kali)</div>
 
-  <!-- 1. UPLOAD DATA -->
+  <!-- 1. DATA -->
   <div class="card">
     <h2><span class="badge-num">1</span> Sumber Data</h2>
     <div class="upload-area" id="uploadArea">
       <div class="icon">📄</div>
-      <div><strong>Klik atau drag & drop file CSV</strong></div>
-      <div class="hint">Format: time/date, open, high, low, close, volume — MT4/MT5 export langsung bisa</div>
+      <div><strong>Klik atau drag & drop CSV</strong></div>
+      <div class="hint">Format: time/date, open, high, low, close, volume — MT4/MT5 langsung bisa</div>
       <input type="file" id="csvFile" accept=".csv">
     </div>
     <div class="file-info" id="fileInfo"></div>
     <div class="btn-row">
-      <button class="btn secondary" id="demoBtn" disabled>🎲 Data Demo (BTC, 500 bar)</button>
+      <button class="btn secondary" id="demoBtn" disabled>🎲 Data Demo (BTC, 2000 bar)</button>
     </div>
   </div>
 
-  <!-- 2. PARAMETER STRATEGI -->
-  <div class="card">
-    <h2><span class="badge-num">2</span> Parameter Strategi</h2>
+  <!-- 2. PERIODE TRADING (muncul setelah upload) -->
+  <div class="card" id="dateRangeCard" style="display:none;">
+    <h2><span class="badge-num">2</span> Periode Trading</h2>
+    <div class="info-box" id="dataRangeInfo"></div>
+    <div class="preset-buttons">
+      <button class="btn secondary sm" data-months="1">📅 1 Bulan</button>
+      <button class="btn secondary sm" data-months="3">📅 3 Bulan</button>
+      <button class="btn secondary sm" data-months="6">📅 6 Bulan</button>
+      <button class="btn secondary sm" data-months="12">📅 1 Tahun</button>
+      <button class="btn secondary sm" data-months="24">📅 2 Tahun</button>
+      <button class="btn secondary sm" id="presetAllBtn">📅 Semua Data</button>
+    </div>
+    <div class="params-grid">
+      <div class="param">
+        <label>Tanggal Mulai</label>
+        <input type="date" id="startDate">
+      </div>
+      <div class="param">
+        <label>Tanggal Selesai</label>
+        <input type="date" id="endDate">
+      </div>
+    </div>
+    <div class="risk-preview" id="periodPreview"></div>
+  </div>
 
+  <!-- 3. MODAL & SIZING -->
+  <div class="card">
+    <h2><span class="badge-num">3</span> Modal & Position Sizing</h2>
+    <div class="params-grid">
+      <div class="param">
+        <label>Modal Awal (USD)</label>
+        <input type="number" id="initialCapital" value="1000" step="100" min="10">
+        <small>Saldo awal akun</small>
+      </div>
+      <div class="param">
+        <label>Mode Sizing</label>
+        <select id="sizingMode">
+          <option value="fixed">Fixed Lot (seperti bot)</option>
+          <option value="risk">Risk % dari Modal (compound)</option>
+        </select>
+        <small id="sizingHint"></small>
+      </div>
+      <div class="param" id="riskPctParam" style="display:none;">
+        <label>Risk per Trade (%)</label>
+        <input type="number" id="riskPerTrade" value="1.0" step="0.1" min="0.1" max="10">
+        <small>Lot dihitung ulang tiap trade</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. PARAMETER STRATEGI -->
+  <div class="card">
+    <h2><span class="badge-num">4</span> Parameter Strategi</h2>
     <div class="tab-row">
       <button class="tab-btn active" id="tabPasteBtn">📋 Paste Bot Code</button>
       <button class="tab-btn" id="tabManualBtn">⚙️ Isi Manual</button>
     </div>
-
-    <!-- TAB: PASTE CODE -->
     <div id="tabPaste">
       <p style="color:var(--muted);font-size:.85rem;margin-bottom:.75rem;">
-        Paste kode bot Anda di bawah. Parameter seperti <code style="color:var(--accent)">FIXED_SL_POINTS</code>,
-        <code style="color:var(--accent)">POINT_SIZE</code>, <code style="color:var(--accent)">RSI_BUY_MAX</code>,
-        <code style="color:var(--accent)">JUMLAH_LOT</code> akan otomatis diekstrak dan mengisi form parameter.
+        Paste kode bot Python. Konstanta seperti <code style="color:var(--accent)">FIXED_SL_POINTS</code>,
+        <code style="color:var(--accent)">POINT_SIZE</code>, <code style="color:var(--accent)">JUMLAH_LOT</code> akan otomatis diekstrak.
       </p>
-      <textarea class="bot-code" id="botCode" placeholder="Paste kode bot Python Anda di sini...&#10;&#10;Contoh:&#10;POINT_SIZE = 0.01&#10;FIXED_SL_POINTS = 3000&#10;FIXED_TP_POINTS = 6000&#10;JUMLAH_LOT = '1.0'&#10;RSI_BUY_MAX = 65&#10;..."></textarea>
+      <textarea class="bot-code" id="botCode" placeholder="Paste kode bot Anda di sini..."></textarea>
       <div class="btn-row" style="margin-top:1rem;">
-        <button class="btn green" id="extractBtn" disabled>🔍 Extract Parameter dari Kode</button>
+        <button class="btn green" id="extractBtn" disabled>🔍 Extract Parameter</button>
         <button class="btn secondary" id="clearCodeBtn">🗑️ Bersihkan</button>
       </div>
       <div class="extracted-list" id="extractedList"></div>
     </div>
-
-    <!-- TAB: MANUAL -->
     <div id="tabManual" style="display:none">
-      <p style="color:var(--muted);font-size:.85rem;">
-        Isi parameter di bawah secara manual. Jika sudah extract dari kode, form di bawah ini
-        <strong>tetap bisa diedit</strong> jika ingin override nilai tertentu.
-      </p>
+      <p style="color:var(--muted);font-size:.85rem;">Isi parameter di bawah secara manual.</p>
     </div>
 
-    <!-- INSTRUMEN -->
     <h3 style="font-size:.9rem;color:var(--accent);margin:1.5rem 0 .75rem;text-transform:uppercase;letter-spacing:.05em;">🎯 Instrumen</h3>
     <div class="params-grid">
       <div class="param">
         <label>Preset</label>
         <select id="presetSelect">
-          <option value="BTCUSD">BTCUSD (Bitcoin)</option>
-          <option value="ETHUSD">ETHUSD (Ethereum)</option>
-          <option value="XAUUSD">XAUUSD (Gold)</option>
-          <option value="XAGUSD">XAGUSD (Silver)</option>
+          <option value="BTCUSD">BTCUSD</option>
+          <option value="ETHUSD">ETHUSD</option>
+          <option value="XAUUSD">XAUUSD</option>
+          <option value="XAGUSD">XAGUSD</option>
           <option value="EURUSD">EURUSD</option>
           <option value="GBPUSD">GBPUSD</option>
           <option value="AUDUSD">AUDUSD</option>
           <option value="USDJPY">USDJPY</option>
-          <option value="US30">US30 (Dow)</option>
-          <option value="NAS100">NAS100 (Nasdaq)</option>
+          <option value="US30">US30</option>
+          <option value="NAS100">NAS100</option>
           <option value="SPX500">SPX500</option>
           <option value="CUSTOM">⚙️ Custom</option>
         </select>
@@ -156,19 +202,17 @@ tr:hover{background:rgba(255,255,255,.02)}
       <div class="param">
         <label>Point Size</label>
         <input type="number" id="pointSize" value="0.01" step="0.00001">
-        <small>1 poin = berapa harga?</small>
       </div>
       <div class="param">
         <label>Value / point / lot (USD)</label>
         <input type="number" id="valuePerPoint" value="0.01" step="0.001">
       </div>
       <div class="param">
-        <label>Lot</label>
+        <label>Lot (fixed mode)</label>
         <input type="number" id="lot" value="1.0" step="0.01" min="0.01">
       </div>
     </div>
 
-    <!-- SL/TP & TRAILING -->
     <h3 style="font-size:.9rem;color:var(--accent);margin:1.5rem 0 .75rem;text-transform:uppercase;letter-spacing:.05em;">🎯 SL / TP / Trailing</h3>
     <div class="params-grid">
       <div class="param"><label>Fixed SL (poin)</label><input type="number" id="sl" value="3000" step="10"></div>
@@ -178,7 +222,6 @@ tr:hover{background:rgba(255,255,255,.02)}
       <div class="param"><label>Trailing Step</label><input type="number" id="trailStep" value="100" step="1"></div>
     </div>
 
-    <!-- FILTER -->
     <h3 style="font-size:.9rem;color:var(--accent);margin:1.5rem 0 .75rem;text-transform:uppercase;letter-spacing:.05em;">🔍 Filter Sinyal</h3>
     <div class="params-grid">
       <div class="param"><label>RSI Period</label><input type="number" id="rsiPeriod" value="14" step="1"></div>
@@ -188,7 +231,6 @@ tr:hover{background:rgba(255,255,255,.02)}
       <div class="param"><label>EMA Slow</label><input type="number" id="emaSlow" value="50" step="1"></div>
     </div>
 
-    <!-- SAFETY & EKSEKUSI -->
     <h3 style="font-size:.9rem;color:var(--accent);margin:1.5rem 0 .75rem;text-transform:uppercase;letter-spacing:.05em;">🛡️ Safety & Eksekusi</h3>
     <div class="params-grid">
       <div class="param"><label>Hard Lock (detik)</label><input type="number" id="hardLock" value="300" step="30"></div>
@@ -196,26 +238,28 @@ tr:hover{background:rgba(255,255,255,.02)}
     </div>
 
     <div class="risk-preview" id="riskPreview"></div>
-
-    <div class="btn-row" style="margin-top:1.5rem;">
-      <button class="btn" id="runBtn" disabled>🚀 Jalankan Backtest</button>
-    </div>
   </div>
 
-  <!-- HASIL -->
+  <!-- RUN -->
+  <div class="card" style="text-align:center;">
+    <button class="btn" id="runBtn" disabled style="padding:1rem 3rem;font-size:1.05rem;">🚀 Jalankan Backtest</button>
+  </div>
+
+  <!-- RESULTS -->
   <div id="results">
     <div class="card">
       <h2>📊 Hasil Backtest <span class="badge" id="symbolBadge">-</span></h2>
+      <div class="capital-hero" id="capitalHero"></div>
       <div class="metrics-grid" id="metricsGrid"></div>
     </div>
     <div class="chart-container"><canvas id="equityChart"></canvas></div>
     <div class="card">
-      <h2>📋 Daftar Trade <button class="btn secondary" id="downloadBtn" style="float:right;padding:.4rem .8rem;font-size:.8rem;">⬇️ Download CSV</button></h2>
+      <h2>📋 Daftar Trade <button class="btn secondary sm" id="downloadBtn" style="float:right;">⬇️ Download CSV</button></h2>
       <div class="trades-container">
         <table>
           <thead><tr>
             <th>#</th><th>Dir</th><th>Open</th><th>Entry</th><th>Exit</th>
-            <th>Reason</th><th>Points</th><th>USD</th><th>Pattern</th><th>Trend</th>
+            <th>Reason</th><th>Points</th><th>USD</th><th>Lot</th><th>Capital</th><th>Pattern</th><th>Trend</th>
           </tr></thead>
           <tbody id="tradesBody"></tbody>
         </table>
@@ -224,14 +268,13 @@ tr:hover{background:rgba(255,255,255,.02)}
   </div>
 
   <div class="footer">
-    ⚠️ Backtest ≠ hasil live. Slippage & kondisi market berubah tetap berpengaruh.<br>
-    Powered by <a href="https://pyodide.org" target="_blank" style="color:var(--accent);">Pyodide</a> ·
-    <a href="https://www.chartjs.org" target="_blank" style="color:var(--accent);">Chart.js</a>
+    ⚠️ Backtest ≠ hasil live. Slippage & market berubah tetap berpengaruh.<br>
+    Powered by <a href="https://pyodide.org" target="_blank" style="color:var(--accent);">Pyodide</a> · <a href="https://www.chartjs.org" target="_blank" style="color:var(--accent);">Chart.js</a>
   </div>
 </div>
 
 <script>
-let pyodide = null, pyodideReady = false, csvText = null, lastResult = null, chartInstance = null;
+let pyodide = null, pyodideReady = false, csvText = null, lastResult = null, chartInstance = null, dataRange = null;
 const $ = id => document.getElementById(id);
 
 const PRESETS = {
@@ -248,54 +291,38 @@ const PRESETS = {
   SPX500: {point_size:0.1,    vpp:0.1,   sl:3000, tp:6000, trailAct:3000, trailGap:1500, trailStep:100, lot:0.10},
 };
 
-// Mapping: nama konstanta di kode bot → id field di form
 const FIELD_MAP = {
-  'POINT_SIZE':                  'pointSize',
-  'FIXED_SL_POINTS':             'sl',
-  'FIXED_TP_POINTS':             'tp',
-  'JUMLAH_LOT':                  'lot',
-  'TRAILING_ACTIVATION_POINTS':  'trailAct',
-  'TRAILING_GAP_POINTS':         'trailGap',
-  'TRAILING_STEP':               'trailStep',
-  'RSI_PERIOD':                  'rsiPeriod',
-  'RSI_BUY_MAX':                 'rsiMax',
-  'RSI_SELL_MIN':                'rsiMin',
-  'EMA_FAST':                    'emaFast',
-  'EMA_SLOW':                    'emaSlow',
-  'HARD_LOCK_SECONDS':           'hardLock',
+  'POINT_SIZE': 'pointSize', 'FIXED_SL_POINTS': 'sl', 'FIXED_TP_POINTS': 'tp',
+  'JUMLAH_LOT': 'lot', 'TRAILING_ACTIVATION_POINTS': 'trailAct',
+  'TRAILING_GAP_POINTS': 'trailGap', 'TRAILING_STEP': 'trailStep',
+  'RSI_PERIOD': 'rsiPeriod', 'RSI_BUY_MAX': 'rsiMax', 'RSI_SELL_MIN': 'rsiMin',
+  'EMA_FAST': 'emaFast', 'EMA_SLOW': 'emaSlow', 'HARD_LOCK_SECONDS': 'hardLock',
 };
 
-// Symbol bot → preset instrumen
 const SYMBOL_TO_PRESET = {
-  'BTC': 'BTCUSD', 'BTCUSD': 'BTCUSD', 'BTC-USD': 'BTCUSD',
-  'ETH': 'ETHUSD', 'ETHUSD': 'ETHUSD', 'ETH-USD': 'ETHUSD',
-  'XAU': 'XAUUSD', 'XAUUSD': 'XAUUSD', 'GOLD': 'XAUUSD', 'GC=F': 'XAUUSD',
-  'XAG': 'XAGUSD', 'XAGUSD': 'XAGUSD', 'SILVER': 'XAGUSD', 'SI=F': 'XAGUSD',
-  'EURUSD': 'EURUSD', 'EURUSD=X': 'EURUSD',
-  'GBPUSD': 'GBPUSD', 'GBPUSD=X': 'GBPUSD',
-  'AUDUSD': 'AUDUSD', 'AUDUSD=X': 'AUDUSD',
-  'USDJPY': 'USDJPY', 'USDJPY=X': 'USDJPY',
-  'US30': 'US30', 'DJI': 'US30', '^DJI': 'US30',
-  'NAS100': 'NAS100', 'NDX': 'NAS100', '^NDX': 'NAS100',
-  'SPX500': 'SPX500', 'SPX': 'SPX500', '^GSPC': 'SPX500',
+  'BTC':'BTCUSD','BTCUSD':'BTCUSD','BTC-USD':'BTCUSD',
+  'ETH':'ETHUSD','ETHUSD':'ETHUSD','ETH-USD':'ETHUSD',
+  'XAU':'XAUUSD','XAUUSD':'XAUUSD','GOLD':'XAUUSD','GC=F':'XAUUSD',
+  'XAG':'XAGUSD','XAGUSD':'XAGUSD','SILVER':'XAGUSD','SI=F':'XAGUSD',
+  'EURUSD':'EURUSD','EURUSD=X':'EURUSD','GBPUSD':'GBPUSD','GBPUSD=X':'GBPUSD',
+  'AUDUSD':'AUDUSD','AUDUSD=X':'AUDUSD','USDJPY':'USDJPY','USDJPY=X':'USDJPY',
+  'US30':'US30','DJI':'US30','^DJI':'US30',
+  'NAS100':'NAS100','NDX':'NAS100','^NDX':'NAS100',
+  'SPX500':'SPX500','SPX':'SPX500','^GSPC':'SPX500',
 };
 
 function setStatus(msg, type='loading') {
   const el = $('status'); el.textContent = msg; el.className = 'status ' + type;
 }
 
-// Tab switching
+// Tabs
 $('tabPasteBtn').onclick = () => {
-  $('tabPaste').style.display = 'block';
-  $('tabManual').style.display = 'none';
-  $('tabPasteBtn').classList.add('active');
-  $('tabManualBtn').classList.remove('active');
+  $('tabPaste').style.display='block'; $('tabManual').style.display='none';
+  $('tabPasteBtn').classList.add('active'); $('tabManualBtn').classList.remove('active');
 };
 $('tabManualBtn').onclick = () => {
-  $('tabPaste').style.display = 'none';
-  $('tabManual').style.display = 'block';
-  $('tabManualBtn').classList.add('active');
-  $('tabPasteBtn').classList.remove('active');
+  $('tabPaste').style.display='none'; $('tabManual').style.display='block';
+  $('tabManualBtn').classList.add('active'); $('tabPasteBtn').classList.remove('active');
 };
 
 function applyPreset(name) {
@@ -303,8 +330,7 @@ function applyPreset(name) {
   const p = PRESETS[name];
   $('pointSize').value = p.point_size;
   $('valuePerPoint').value = p.vpp;
-  $('sl').value = p.sl;
-  $('tp').value = p.tp;
+  $('sl').value = p.sl; $('tp').value = p.tp;
   $('trailAct').value = p.trailAct;
   $('trailGap').value = p.trailGap;
   $('trailStep').value = p.trailStep;
@@ -318,22 +344,37 @@ function updateRiskPreview() {
   const pt = parseFloat($('pointSize').value)||0.01;
   const vpp = parseFloat($('valuePerPoint').value)||0.01;
   const lot = parseFloat($('lot').value)||1;
-  const slRisk = sl * vpp * lot;
-  const tpReward = tp * vpp * lot;
-  const rr = slRisk > 0 ? (tpReward/slRisk).toFixed(2) : '-';
+  const capital = parseFloat($('initialCapital').value)||1000;
+  const mode = $('sizingMode').value;
+  const riskPct = parseFloat($('riskPerTrade').value)||1;
+  
+  let effectiveLot = lot;
+  if (mode === 'risk') {
+    const riskUsd = capital * (riskPct/100);
+    effectiveLot = Math.max(0.01, riskUsd / (sl * vpp));
+  }
+  
+  const riskUsd = sl * vpp * effectiveLot;
+  const rewardUsd = tp * vpp * effectiveLot;
+  const rr = sl > 0 ? (tp/sl).toFixed(2) : '-';
   $('riskPreview').textContent =
-    `SL: ${sl} poin = ${(sl*pt).toFixed(5)} harga | Risk @ SL: $${slRisk.toFixed(2)} per ${lot} lot  ·  ` +
-    `TP: ${tp} poin | Reward: $${tpReward.toFixed(2)}  ·  R:R 1:${rr}`;
+    `SL: ${sl}p = ${(sl*pt).toFixed(5)} harga | Lot efektif: ${effectiveLot.toFixed(2)} | Risk: $${riskUsd.toFixed(2)} | Reward: $${rewardUsd.toFixed(2)} | R:R 1:${rr}`;
 }
 
-['sl','tp','pointSize','valuePerPoint','lot'].forEach(id =>
-  $(id).addEventListener('input', updateRiskPreview));
+function updateSizingHint() {
+  const mode = $('sizingMode').value;
+  $('riskPctParam').style.display = mode === 'risk' ? 'block' : 'none';
+  $('sizingHint').textContent = mode === 'fixed' ? 'Lot tetap tiap trade' : 'Lot proporsional modal';
+  updateRiskPreview();
+}
 
+['sl','tp','pointSize','valuePerPoint','lot','initialCapital','riskPerTrade'].forEach(id =>
+  $(id).addEventListener('input', updateRiskPreview));
+$('sizingMode').addEventListener('change', updateSizingHint);
 $('presetSelect').addEventListener('change', e => {
   if (e.target.value !== 'CUSTOM') applyPreset(e.target.value);
 });
 
-// Init Pyodide
 async function initPyodide() {
   try {
     pyodide = await loadPyodide();
@@ -353,14 +394,13 @@ import backtest
     $('runBtn').disabled = false;
     $('demoBtn').disabled = false;
     $('extractBtn').disabled = false;
-    setStatus('✅ Siap! Upload CSV, paste bot code atau isi manual, lalu jalankan.', 'success');
+    setStatus('✅ Siap! Upload CSV, atur modal & periode, jalankan.', 'success');
   } catch (e) {
-    console.error(e);
     setStatus('❌ Gagal memuat: ' + e.message, 'error');
   }
 }
 
-// Upload
+// Upload + parse date range
 const uploadArea = $('uploadArea'), fileInput = $('csvFile');
 uploadArea.addEventListener('click', () => fileInput.click());
 uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
@@ -377,147 +417,204 @@ async function handleFile(file) {
   const rows = csvText.trim().split('\n').length - 1;
   $('fileInfo').classList.add('active');
   $('fileInfo').innerHTML = `📄 <strong>${file.name}</strong> — ${(file.size/1024).toFixed(1)} KB, ${rows} baris`;
+  if (!pyodideReady) return;
+  await loadDateRange();
 }
+
+async function loadDateRange() {
+  try {
+    pyodide.globals.set('CSV_TEXT', csvText);
+    await pyodide.runPythonAsync(`
+import io, json, pandas as pd
+from backtest import normalize_df
+try:
+    _df = normalize_df(pd.read_csv(io.StringIO(CSV_TEXT)))
+    _INFO = json.dumps({
+        'ok': True,
+        'min_date': str(_df['time'].min()),
+        'max_date': str(_df['time'].max()),
+        'bars': int(len(_df))
+    })
+except Exception as e:
+    _INFO = json.dumps({'ok': False, 'error': str(e)})
+    `);
+    const infoJSON = pyodide.globals.get('_INFO');
+    const info = JSON.parse(infoJSON);
+    if (!info.ok) throw new Error(info.error);
+    dataRange = info;
+    showDateRange(info);
+  } catch (e) {
+    console.error('Date range error:', e);
+    setStatus('❌ Gagal parse CSV: ' + e.message, 'error');
+  }
+}
+
+function showDateRange(info) {
+  const minDate = info.min_date.slice(0,10);
+  const maxDate = info.max_date.slice(0,10);
+  ['startDate','endDate'].forEach(id => {
+    $(id).min = minDate; $(id).max = maxDate;
+  });
+  $('startDate').value = minDate;
+  $('endDate').value = maxDate;
+  const diffDays = Math.round((new Date(maxDate) - new Date(minDate)) / (1000*60*60*24));
+  const years = (diffDays/365).toFixed(1);
+  $('dataRangeInfo').innerHTML = `📅 <strong>Data tersedia:</strong> ${minDate} → ${maxDate} (${diffDays} hari · ${years} tahun · ${info.bars.toLocaleString()} bar)`;
+  $('dateRangeCard').style.display = 'block';
+  updatePeriodPreview();
+}
+
+function updatePeriodPreview() {
+  if (!dataRange) return;
+  const start = $('startDate').value;
+  const end = $('endDate').value;
+  if (!start || !end) { $('periodPreview').textContent = 'Pilih tanggal mulai & selesai'; return; }
+  const s = new Date(start), e = new Date(end);
+  if (s > e) { $('periodPreview').textContent = '⚠️ Tanggal mulai harus ≤ tanggal selesai'; return; }
+  const days = Math.round((e - s) / (1000*60*60*24)) + 1;
+  const estBars = Math.round(dataRange.bars * (days / Math.round((new Date(dataRange.max_date.slice(0,10)) - new Date(dataRange.min_date.slice(0,10))) / (1000*60*60*24))));
+  $('periodPreview').textContent = `📅 Periode terpilih: ${start} → ${end} (${days} hari · estimasi ~${estBars.toLocaleString()} bar)`;
+}
+
+['startDate','endDate'].forEach(id => $(id).addEventListener('change', updatePeriodPreview));
+
+// Preset buttons
+document.querySelectorAll('.preset-buttons .btn[data-months]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!dataRange) return;
+    const months = parseInt(btn.dataset.months);
+    const endDate = new Date($('endDate').value || dataRange.max_date.slice(0,10));
+    const startDate = new Date(endDate);
+    startDate.setMonth(startDate.getMonth() - months);
+    $('startDate').value = startDate.toISOString().slice(0,10);
+    updatePeriodPreview();
+  });
+});
+$('presetAllBtn').onclick = () => {
+  if (!dataRange) return;
+  $('startDate').value = dataRange.min_date.slice(0,10);
+  $('endDate').value = dataRange.max_date.slice(0,10);
+  updatePeriodPreview();
+};
 
 // Demo
 $('demoBtn').addEventListener('click', async () => {
   if (!pyodideReady) return;
-  setStatus('🎲 Generate data demo BTC...', 'loading');
+  setStatus('🎲 Generate data demo...', 'loading');
   try {
     const csv = await pyodide.runPythonAsync(`
 import numpy as np, pandas as pd
 np.random.seed(42)
-n = 500
+n = 2000
 base = 60000
-trend = np.linspace(0, 8000, n)
+trend = np.linspace(0, 30000, n)
 noise = np.cumsum(np.random.randn(n) * 200)
 close = base + trend + noise
 open_ = np.concatenate([[close[0]], close[:-1]])
 high = np.maximum(open_, close) + np.abs(np.random.randn(n) * 150)
 low  = np.minimum(open_, close) - np.abs(np.random.randn(n) * 150)
 volume = np.random.randint(50, 500, n).astype(float)
-times = pd.date_range('2024-01-01', periods=n, freq='h')
+times = pd.date_range('2023-01-01', periods=n, freq='h')
 df = pd.DataFrame({'time': times, 'open': open_, 'high': high, 'low': low, 'close': close, 'volume': volume})
 df.to_csv(index=False)
     `);
     csvText = csv;
     $('fileInfo').classList.add('active');
-    $('fileInfo').innerHTML = `🎲 <strong>Demo BTC</strong> — 500 bar (1 jam, trend naik)`;
+    $('fileInfo').innerHTML = `🎲 <strong>Demo BTC</strong> — 2000 bar (1 jam, ~3 bulan)`;
     $('presetSelect').value = 'BTCUSD';
     applyPreset('BTCUSD');
-    setStatus('✅ Data demo BTC siap.', 'success');
-  } catch (e) { setStatus('❌ Error demo: ' + e.message, 'error'); }
+    await loadDateRange();
+    setStatus('✅ Data demo siap.', 'success');
+  } catch (e) { setStatus('❌ Demo error: ' + e.message, 'error'); }
 });
 
-// === EXTRACT PARAMETER DARI KODE BOT ===
+// Extract params
 $('extractBtn').addEventListener('click', async () => {
   const code = $('botCode').value.trim();
   if (!code) { setStatus('❌ Paste kode bot dulu.', 'error'); return; }
-  if (!pyodideReady) { setStatus('❌ Pyodide belum siap.', 'error'); return; }
-
-  setStatus('🔍 Extract parameter dari kode...', 'loading');
+  setStatus('🔍 Extract parameter...', 'loading');
   try {
     pyodide.globals.set('BOT_CODE', code);
-    const resultJSON = await pyodide.runPythonAsync(`
+    await pyodide.runPythonAsync(`
 import ast, json
-code = BOT_CODE
 try:
-    tree = ast.parse(code)
-except SyntaxError as e:
-    result = {'error': f'Syntax error: {e}'}
-else:
-    result = {}
+    _r = {'ok': True, 'params': {}}
+    tree = ast.parse(BOT_CODE)
+    params = {}
     for node in tree.body:
         if isinstance(node, ast.Assign):
             for t in node.targets:
                 if isinstance(t, ast.Name):
                     try:
-                        result[t.id] = ast.literal_eval(node.value)
+                        v = ast.literal_eval(node.value)
+                        if isinstance(v, (int, float, str, bool)):
+                            params[t.id] = v
                     except Exception:
                         pass
-    # Saring hanya tipe yang bisa di-JSON
-    result = {k: v for k, v in result.items() if isinstance(v, (int, float, str, bool))}
-json.dumps(result)
+    _r['params'] = params
+except SyntaxError as e:
+    _r = {'ok': False, 'error': 'Syntax error: ' + str(e)}
+except Exception as e:
+    _r = {'ok': False, 'error': type(e).__name__ + ': ' + str(e)}
+_RESULT_JSON = json.dumps(_r)
     `);
-    const extracted = JSON.parse(resultJSON);
-    if (extracted.error) throw new Error(extracted.error);
-
-    renderExtracted(extracted);
+    const resultJSON = pyodide.globals.get('_RESULT_JSON');
+    if (typeof resultJSON !== 'string') throw new Error('Python tidak return _RESULT_JSON');
+    const parsed = JSON.parse(resultJSON);
+    if (!parsed.ok) throw new Error(parsed.error);
+    renderExtracted(parsed.params);
+    setStatus(`✅ ${Object.keys(parsed.params).length} konstanta terdeteksi.`, 'success');
   } catch (e) {
-    setStatus('❌ Gagal extract: ' + e.message, 'error');
+    console.error(e);
+    setStatus('❌ Extract error: ' + e.message, 'error');
   }
 });
 
 function renderExtracted(extracted) {
   const applied = [];
   const unknown = [];
-
-  // 1. Terapkan konstanta yang match FIELD_MAP
   for (const [constName, fieldId] of Object.entries(FIELD_MAP)) {
     if (extracted[constName] !== undefined) {
-      const val = extracted[constName];
       const field = $(fieldId);
       if (field) {
-        field.value = val;
+        field.value = extracted[constName];
         field.classList.add('extracted');
         setTimeout(() => field.classList.remove('extracted'), 3000);
-        applied.push({ constName, value: val, fieldId });
+        applied.push({ constName, value: extracted[constName] });
       }
     }
   }
-
-  // 2. Auto-detect instrumen dari SYMBOL_YF / SYMBOL_POSISI
   let detectedSymbol = null;
-  for (const key of ['SYMBOL_YF', 'SYMBOL_POSISI', 'SYMBOL']) {
+  for (const key of ['SYMBOL_YF','SYMBOL_POSISI','SYMBOL']) {
     if (extracted[key]) {
       const raw = String(extracted[key]).toUpperCase();
-      if (SYMBOL_TO_PRESET[raw]) {
-        detectedSymbol = SYMBOL_TO_PRESET[raw];
-        break;
-      }
+      if (SYMBOL_TO_PRESET[raw]) { detectedSymbol = SYMBOL_TO_PRESET[raw]; break; }
     }
   }
   if (detectedSymbol) {
     $('presetSelect').value = detectedSymbol;
     applyPreset(detectedSymbol);
   }
-
-  // 3. Tampilkan daftar konstanta lain yang terdeteksi (info saja)
   for (const [k, v] of Object.entries(extracted)) {
     if (!FIELD_MAP[k] && !['SYMBOL_YF','SYMBOL_POSISI','SYMBOL'].includes(k)) {
-      if (typeof v === 'number' || typeof v === 'string') {
-        unknown.push({ key: k, value: v });
-      }
+      if (typeof v === 'number' || typeof v === 'string') unknown.push({key:k, value:v});
     }
   }
-
   updateRiskPreview();
-
-  // 4. Render report
   const list = $('extractedList');
   list.classList.add('active');
   let html = `<h4>✅ ${applied.length} parameter diterapkan${detectedSymbol ? ' · 🎯 Instrumen: ' + detectedSymbol : ''}</h4>`;
   if (applied.length > 0) {
     html += '<div style="margin-bottom:.5rem;">';
-    applied.forEach(a => {
-      html += `<code>${a.constName} = ${a.value}</code>`;
-    });
+    applied.forEach(a => { html += `<code>${a.constName} = ${a.value}</code>`; });
     html += '</div>';
-  } else {
-    html += '<div style="color:var(--red);">⚠️ Tidak ada konstanta yang match. Pastikan kode berisi variabel seperti <code>FIXED_SL_POINTS</code>, <code>POINT_SIZE</code>, dsb.</div>';
   }
   if (unknown.length > 0) {
-    html += `<div style="margin-top:.75rem;color:var(--muted);font-size:.8rem;">Konstanta lain terdeteksi (tidak di-map, info saja):</div>`;
-    html += '<div style="margin-top:.25rem;">';
-    unknown.slice(0, 20).forEach(u => {
-      html += `<code style="opacity:.6;">${u.key} = ${String(u.value).slice(0,30)}</code>`;
-    });
-    if (unknown.length > 20) html += `<code style="opacity:.6;">...+${unknown.length-20} lagi</code>`;
+    html += `<div style="margin-top:.75rem;color:var(--muted);font-size:.8rem;">Lainnya:</div><div style="margin-top:.25rem;">`;
+    unknown.slice(0, 15).forEach(u => { html += `<code style="opacity:.6;">${u.key} = ${String(u.value).slice(0,30)}</code>`; });
     html += '</div>';
   }
   list.innerHTML = html;
-
-  setStatus(`✅ ${applied.length} parameter diekstrak dari kode bot. Lanjut jalankan backtest.`, 'success');
 }
 
 $('clearCodeBtn').onclick = () => {
@@ -525,16 +622,16 @@ $('clearCodeBtn').onclick = () => {
   $('extractedList').classList.remove('active');
 };
 
-// === RUN BACKTEST ===
+// Run backtest
 $('runBtn').addEventListener('click', async () => {
-  if (!pyodideReady || !csvText) {
-    setStatus('❌ Upload CSV atau pakai Data Demo dulu.', 'error');
-    return;
-  }
+  if (!pyodideReady || !csvText) { setStatus('❌ Upload CSV dulu.', 'error'); return; }
   const params = {
     symbol_name: $('presetSelect').value,
     point_size: parseFloat($('pointSize').value),
     value_per_point_per_lot: parseFloat($('valuePerPoint').value),
+    initial_capital: parseFloat($('initialCapital').value),
+    sizing_mode: $('sizingMode').value,
+    risk_per_trade_pct: parseFloat($('riskPerTrade').value),
     lot: parseFloat($('lot').value),
     fixed_sl_points: parseInt($('sl').value),
     fixed_tp_points: parseInt($('tp').value),
@@ -547,49 +644,57 @@ $('runBtn').addEventListener('click', async () => {
     ema_fast: parseInt($('emaFast').value),
     ema_slow: parseInt($('emaSlow').value),
     hard_lock_seconds: parseInt($('hardLock').value),
-    spread_points: parseFloat($('spread').value)
+    spread_points: parseFloat($('spread').value),
+    start_date: $('startDate').value || null,
+    end_date: $('endDate').value || null
   };
   setStatus('🚀 Menjalankan backtest...', 'loading');
   $('runBtn').disabled = true;
   try {
     pyodide.globals.set('PARAMS_JSON', JSON.stringify(params));
     pyodide.globals.set('CSV_TEXT', csvText);
-
-    const resultJSON = await pyodide.runPythonAsync(`
-import json, io
+    await pyodide.runPythonAsync(`
+import json, io, traceback
 import pandas as pd
-from backtest import normalize_df, run_backtest, Config
+from backtest import normalize_df, run_backtest, filter_by_date, Config
 
-PARAMS = json.loads(PARAMS_JSON)
 try:
+    _r = {'ok': False, 'error': 'Unknown'}
+    PARAMS = json.loads(PARAMS_JSON)
+    start_date = PARAMS.pop('start_date', None)
+    end_date = PARAMS.pop('end_date', None)
     df = normalize_df(pd.read_csv(io.StringIO(CSV_TEXT)))
-except Exception as e:
-    json.dumps({'ok': False, 'error': 'CSV parse error: ' + str(e)})
-else:
+    df = filter_by_date(df, start_date, end_date)
     if len(df) < 100:
-        json.dumps({'ok': False, 'error': 'Data terlalu sedikit: ' + str(len(df)) + ' bar (minimal 100)'})
+        _r = {'ok': False, 'error': 'Data terlalu sedikit setelah filter: ' + str(len(df)) + ' bar (minimal 100)'}
     else:
         cfg = Config(**PARAMS)
         trades, metrics, equity = run_backtest(df, cfg)
         m = {k: (float(v) if hasattr(v, 'item') or isinstance(v, (int, float)) else v) for k, v in metrics.items()}
-        trades_records = []
+        tr = []
         if len(trades) > 0:
             t = trades.copy()
             t['open_time'] = t['open_time'].astype(str)
             t['close_time'] = t['close_time'].astype(str)
-            trades_records = t.to_dict('records')
-        json.dumps({
-            'ok': True, 'symbol': cfg.symbol_name, 'metrics': m,
-            'trades': trades_records, 'equity': [float(x) for x in equity.tolist()],
-            'times': [str(x) for x in df['time'].tolist()], 'bars': len(df)
-        })
+            tr = t.to_dict('records')
+        _r = {'ok': True, 'symbol': cfg.symbol_name, 'metrics': m,
+              'trades': tr, 'equity': [float(x) for x in equity.tolist()],
+              'times': [str(x) for x in df['time'].tolist()], 'bars': len(df),
+              'period': f"{str(df['time'].min())[:10]} → {str(df['time'].max())[:10]}"}
+except Exception as e:
+    _r = {'ok': False, 'error': type(e).__name__ + ': ' + str(e), 'trace': traceback.format_exc()}
+_RESULT_JSON = json.dumps(_r)
     `);
-
+    const resultJSON = pyodide.globals.get('_RESULT_JSON');
+    if (typeof resultJSON !== 'string') throw new Error('Python tidak return _RESULT_JSON');
     const result = JSON.parse(resultJSON);
-    if (!result.ok) throw new Error(result.error);
+    if (!result.ok) {
+      if (result.trace) console.error('Traceback:\n' + result.trace);
+      throw new Error(result.error);
+    }
     lastResult = result;
     renderResults(result);
-    setStatus(`✅ Selesai — ${result.symbol} | ${result.bars} bar → ${result.trades.length} trade`, 'success');
+    setStatus(`✅ Selesai — ${result.symbol} | ${result.period} | ${result.bars} bar → ${result.trades.length} trade`, 'success');
   } catch (e) {
     console.error(e);
     setStatus('❌ Error: ' + e.message, 'error');
@@ -600,41 +705,55 @@ else:
 
 function renderResults(result) {
   const m = result.metrics;
-  $('symbolBadge').textContent = result.symbol;
+  $('symbolBadge').textContent = result.symbol + ' · ' + result.period;
+  
+  // Capital hero
+  const capClass = m.final_capital >= m.initial_capital ? 'green' : 'red';
+  const arrow = m.final_capital >= m.initial_capital ? '📈' : '📉';
+  $('capitalHero').innerHTML = `
+    <div class="capital-box"><div class="lbl">Modal Awal</div><div class="val">$${m.initial_capital.toFixed(2)}</div></div>
+    <div class="capital-arrow">${arrow}</div>
+    <div class="capital-box"><div class="lbl">Modal Akhir</div><div class="val ${capClass}">$${m.final_capital.toFixed(2)}</div></div>
+  `;
+  
   const cards = [
+    { l:'Return', v:`${m.return_pct>=0?'+':''}${m.return_pct.toFixed(2)}%`, c:m.return_pct>=0?'green':'red', h:true },
     { l:'Total Trades', v:m.total_trades, c:'' },
     { l:'Win / Loss / BE', v:`${m.wins} / ${m.losses} / ${m.breakeven}`, c:'' },
     { l:'Win Rate', v:m.win_rate.toFixed(1)+'%', c:m.win_rate>=50?'green':'red' },
     { l:'Total P/L (USD)', v:(m.total_usd>=0?'+':'')+m.total_usd.toFixed(2), c:m.total_usd>=0?'green':'red' },
-    { l:'Total Poin', v:(m.total_points>=0?'+':'')+m.total_points.toFixed(0), c:m.total_points>=0?'green':'red' },
     { l:'Profit Factor', v:m.profit_factor.toFixed(2), c:m.profit_factor>=1?'green':'red' },
     { l:'Avg Win', v:'+'+m.avg_win.toFixed(2), c:'green' },
     { l:'Avg Loss', v:m.avg_loss.toFixed(2), c:'red' },
     { l:'Expectancy', v:(m.expectancy>=0?'+':'')+m.expectancy.toFixed(2), c:m.expectancy>=0?'green':'red' },
     { l:'Max Drawdown', v:m.max_drawdown_usd.toFixed(2), c:'red' },
+    { l:'Max DD %', v:m.max_drawdown_pct.toFixed(2)+'%', c:'red' },
     { l:'Sharpe', v:m.sharpe.toFixed(2), c:'' },
     { l:'Max Win Streak', v:m.max_win_streak, c:'green' },
     { l:'Max Loss Streak', v:m.max_loss_streak, c:'red' },
+    { l:'Best Trade', v:'+'+m.best_trade.toFixed(2), c:'green' },
+    { l:'Worst Trade', v:m.worst_trade.toFixed(2), c:'red' },
   ];
   $('metricsGrid').innerHTML = cards.map(c =>
-    `<div class="metric-card"><div class="metric-label">${c.l}</div><div class="metric-value ${c.c}">${c.v}</div></div>`
+    `<div class="metric-card${c.h?' highlight':''}"><div class="metric-label">${c.l}</div><div class="metric-value ${c.c}">${c.v}</div></div>`
   ).join('');
 
   if (chartInstance) chartInstance.destroy();
   chartInstance = new Chart($('equityChart'), {
     type:'line',
-    data:{labels:result.times,datasets:[{label:'Equity (USD)',data:result.equity,
+    data:{labels:result.times,datasets:[{label:'Capital (USD)',data:result.equity,
       borderColor:'#f7931a',backgroundColor:'rgba(247,147,26,0.1)',
       fill:true,tension:0.1,pointRadius:0,borderWidth:2}]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      plugins:{legend:{display:false},
+        title:{display:true,text:`Capital Growth ($${m.initial_capital} → $${m.final_capital.toFixed(2)})`,color:'#e4e6eb',font:{size:14}}},
       scales:{x:{ticks:{maxTicksLimit:8,color:'#8b8f9a'},grid:{color:'rgba(255,255,255,0.05)'}},
-              y:{ticks:{color:'#8b8f9a',callback:v=>'$'+v.toFixed(2)},grid:{color:'rgba(255,255,255,0.05)'}}}}
+              y:{ticks:{color:'#8b8f9a',callback:v=>'$'+v.toFixed(0)},grid:{color:'rgba(255,255,255,0.05)'}}}}
   });
 
   const body = $('tradesBody');
   if (result.trades.length === 0) {
-    body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:#8b8f9a;">Tidak ada trade. Coba ubah parameter.</td></tr>';
+    body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:2rem;color:#8b8f9a;">Tidak ada trade. Coba ubah parameter atau periode.</td></tr>';
   } else {
     body.innerHTML = result.trades.map(t => `
       <tr>
@@ -646,6 +765,8 @@ function renderResults(result) {
         <td>${t.exit_reason}</td>
         <td class="${t.points>=0?'win':'loss'}">${t.points>=0?'+':''}${parseFloat(t.points).toFixed(0)}</td>
         <td class="${t.usd>=0?'win':'loss'}">${t.usd>=0?'+':''}$${Math.abs(parseFloat(t.usd)).toFixed(2)}</td>
+        <td>${parseFloat(t.lot).toFixed(2)}</td>
+        <td>$${parseFloat(t.capital_after).toFixed(2)}</td>
         <td>${t.pattern||'-'}</td>
         <td>${t.trend||'-'}</td>
       </tr>
@@ -669,12 +790,13 @@ $('downloadBtn').addEventListener('click', () => {
   const blob = new Blob([csv], {type:'text/csv'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `backtest_${lastResult.symbol}_trades.csv`; a.click();
+  a.href = url; a.download = `backtest_${lastResult.symbol}_${lastResult.period.replace(/[ →]/g,'_')}.csv`; a.click();
   URL.revokeObjectURL(url);
 });
 
 initPyodide();
 updateRiskPreview();
+updateSizingHint();
 </script>
 </body>
 </html>
