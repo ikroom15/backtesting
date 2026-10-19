@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌍 Portable Backtester — Paste Bot Code</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0a0b0f;--card:#16181f;--border:#262935;--text:#e4e6eb;--muted:#8b8f9a;--accent:#f7931a;--green:#16c784;--red:#ea3943;--blue:#3861fb;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+.container{max-width:1280px;margin:0 auto;padding:2rem 1.5rem}
+header{text-align:center;margin-bottom:2rem}
+h1{font-size:2rem;font-weight:700;margin-bottom:.4rem}
+h1 .accent{color:var(--accent)}
+.subtitle{color:var(--muted);font-size:.95rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem}
+.card h2{font-size:1.1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.badge-num{background:var(--accent);color:#000;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700}
+.status{padding:.75rem 1rem;border-radius:8px;font-size:.9rem;margin-bottom:1rem;background:#1a1d26;border:1px solid var(--border)}
+.status.success{border-color:var(--green);color:var(--green)}
+.status.error{border-color:var(--red);color:var(--red)}
+.status.loading{border-color:var(--accent);color:var(--accent)}
+.status.info{border-color:var(--blue);color:#a8b8ff}
+.upload-area{border:2px dashed var(--border);border-radius:12px;padding:2rem;text-align:center;transition:all .2s;cursor:pointer;margin-bottom:1rem}
+.upload-area:hover{border-color:var(--accent);background:rgba(247,147,26,.05)}
+.upload-area.dragover{border-color:var(--accent);background:rgba(247,147,26,.1)}
+.upload-area input{display:none}
+.upload-area .icon{font-size:2.5rem;margin-bottom:.5rem}
+.upload-area .hint{color:var(--muted);font-size:.85rem;margin-top:.5rem}
+.file-info{background:#1a1d26;padding:.75rem 1rem;border-radius:8px;font-size:.9rem;margin-bottom:1rem;display:none}
+.file-info.active{display:block}
+.btn{background:var(--accent);color:#000;border:none;padding:.75rem 1.5rem;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn:hover:not(:disabled){filter:brightness(1.1)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.secondary{background:#1a1d26;color:var(--text);border:1px solid var(--border)}
+.btn.secondary:hover:not(:disabled){background:#222735}
+.btn.green{background:var(--green);color:#fff}
+.btn-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+textarea.bot-code{width:100%;min-height:280px;background:#0d0f14;color:#e4e6eb;border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:'Consolas','Monaco','Courier New',monospace;font-size:.85rem;line-height:1.5;resize:vertical}
+textarea.bot-code:focus{outline:none;border-color:var(--accent)}
+.params-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-top:1rem}
+.param label{display:block;color:var(--muted);font-size:.72rem;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.05em}
+.param input,.param select{width:100%;background:#1a1d26;border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:6px;font-size:.9rem}
+.param input:focus,.param select:focus{outline:none;border-color:var(--accent)}
+.param input.extracted{border-color:var(--green);background:rgba(22,199,132,.05)}
+.param small{display:block;color:var(--muted);font-size:.7rem;margin-top:.25rem}
+details summary{cursor:pointer;color:var(--accent);font-size:.9rem;margin-bottom:1rem;user-select:none;font-weight:600}
+details[open] summary{margin-bottom:1rem}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1rem;margin:1.5rem 0}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem}
+.metric-label{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
+.metric-value{font-size:1.6rem;font-weight:700;margin-top:.4rem;word-break:break-word}
+.metric-value.green{color:var(--green)}
+.metric-value.red{color:var(--red)}
+.chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;height:380px;margin-bottom:1.5rem}
+.trades-container{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:auto;max-height:500px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{background:#1a1d26;color:var(--muted);text-align:left;padding:.75rem 1rem;position:sticky;top:0;font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;z-index:1}
+td{padding:.6rem 1rem;border-top:1px solid var(--border);white-space:nowrap}
+td.win{color:var(--green)}
+td.loss{color:var(--red)}
+tr:hover{background:rgba(255,255,255,.02)}
+#results{display:none}
+.footer{text-align:center;color:var(--muted);font-size:.8rem;margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)}
+.info-box{background:rgba(56,97,251,.1);border:1px solid rgba(56,97,251,.3);border-radius:8px;padding:1rem;font-size:.85rem;margin-top:1rem;color:#a8b8ff}
+.info-box strong{color:#fff}
+.risk-preview{background:rgba(247,147,26,.08);border:1px solid rgba(247,147,26,.3);border-radius:8px;padding:.75rem 1rem;font-size:.85rem;margin-top:1rem;color:var(--accent);font-family:monospace}
+.badge{display:inline-block;background:var(--blue);color:#fff;padding:.15rem .5rem;border-radius:4px;font-size:.7rem;font-weight:600;margin-left:.5rem}
+.extracted-list{background:rgba(22,199,132,.1);border:1px solid rgba(22,199,132,.3);border-radius:8px;padding:1rem;margin-top:1rem;font-size:.85rem;display:none}
+.extracted-list.active{display:block}
+.extracted-list h4{color:var(--green);margin-bottom:.5rem;font-size:.85rem}
+.extracted-list code{background:#0d0f14;padding:.15rem .4rem;border-radius:4px;color:#e4e6eb;font-size:.8rem;display:inline-block;margin:.15rem .15rem 0 0}
+.tab-row{display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:.5rem}
+.tab-btn{background:transparent;border:none;color:var(--muted);padding:.5rem 1rem;font-size:.9rem;cursor:pointer;border-radius:6px;font-weight:600}
+.tab-btn.active{background:rgba(247,147,26,.15);color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🌍 <span class="accent">Portable</span> Backtester</h1>
+    <p class="subtitle">Paste bot code Anda atau isi parameter manual — semua di browser, data tidak dikirim ke server</p>
+  </header>
+
+  <div id="status" class="status loading">⏳ Memuat Python environment... (~30-60 detik pertama kali)</div>
+
+  <!-- 1. UPLOAD DATA -->
+  <div class="card">
+    <h2><span class="badge-num">1</span> Sumber Data</h2>
+    <div class="upload-area" id="uploadArea">
+      <div class="icon">📄</div>
+      <div><strong>Klik atau drag & drop file CSV</strong></div>
+      <div class="hint">Format: time/date, open, high, low, close, volume — MT4/MT5 export langsung bisa</div>
+      <input type="file" id="csvFile" accept=".csv">
+    </div>
+    <div class="file-info" id="fileInfo"></div>
+    <div class="btn-row">
+      <button class="btn secondary" id="demoBtn" disabled>🎲 Data Demo (BTC, 500 bar)</button>
+    </div>
+  </div>
+
+  <!-- 2. PARAMETER STRATEGI -->
+  <div class="card">
+    <h2><span class="badge-num">2</span> Parameter Strategi</h2>
+
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabPasteBtn">📋 Paste Bot Code</button>
+      <button class="tab-btn" id="tabManualBtn">⚙️ Isi Manual</button>
+    </div>
+
+    <!-- TAB: PASTE CODE -->
+    <div id="tabPaste">
+      <p style="color:var(--muted);font-size:.85rem;margin-bottom:.75rem;">
+        Paste kode bot Anda di bawah. Parameter seperti <code style="color:var(--accent)">FIXED_SL_POINTS</code>,
+        <code style="color:var(--accent)">POINT_SIZE</code>, <code style="color:var(--accent)">RSI_BUY_MAX</code>,
+        <code style="color:var(--accent)">JUMLAH_LOT</code> akan otomatis diekstrak dan mengisi form parameter.
+      </p>
+      <textarea class="bot-code" id="botCode" placeholder="Paste kode bot Python Anda di sini...&#10;&#10;Contoh:&#10;POINT_SIZE = 0.01&#10;FIXED_SL_POINTS = 3000&#10;FIXED_TP_POINTS = 6000&#10;JUMLAH_LOT = '1.0'&#10;RSI_BUY_MAX = 65&#10;..."></textarea>
+      <div class="btn-row" style="margin-top:1rem;">
+        <button class="btn green" id="extractBtn" disabled>🔍 Extract Parameter dari Kode</button>
+        <button class="btn secondary" id="clearCodeBtn">🗑️ Bersihkan</button>
+      </div>
+      <div class="extracted-list" id="extractedList"></div>
+    </div>
+
+    <!-- TAB: MANUAL -->
+    <div id="tabManual" style="display:none">
+      <p style="color:var(--muted);font-size:.85rem;">
+        Isi parameter di bawah secara manual. Jika sudah extract dari kode, form di bawah ini
+        <strong>tetap bisa diedit</strong> jika ingin override nilai tertentu.
+      </p>
+    </div>
+
+    <!-- INSTRUMEN -->
+    <h3 style="font-size:.9rem;color:var(--accent);margin:1.5rem 0 .75rem;text-transform:uppercase;letter-spacing:.05em;">🎯 Instrumen</h3>
+    <div class="params-grid">
+      <div class="param">
+        <label>Preset</label>
+        <select id="presetSelect">
+          <option value="BTCUSD">BTCUSD (Bitcoin)</option>
+          <option value="ETHUSD">ETHUSD (Ethereum)</option>
+          <option value="XAUUSD">XAUUSD (Gold)</option>
+          <option value="XAGUSD">XAGUSD (Silver)</option>
+          <option value="EURUSD">EURUSD</option>
+          <option value="GBPUSD">GBPUSD</option>
+          <option value="AUDUSD">AUDUSD</option>
+          <option value="USDJPY">USDJPY</option>
+          <option value="US30">US30 (Dow)</option>
+          <option value="NAS100">NAS100 (Nasdaq)</option>
+          <option value="SPX500">SPX500</option>
+          <option value="CUSTOM">⚙️ Custom</option>
+        </select>
+      </div>
+      <div class="param">
+        <label>Point Size</label>
+        <input type="number" id="pointSize" value="0.01" step="0.00001">
+        <small>1 poin = berapa harga?</small>
+      </div>
+      <div class="param">
+        <label>Value / point / lot (USD)</label>
+        <input type="number" id="valuePerPoint" value="0.01" step="0.001">
+      </div>
+      <div class="param">
+        <label>Lot</label>
+        <input type="number" id="lot" value="1.0" step="0.01" min="0.01">
+      </div>
+    </div>
+
+    <!-- SL/TP & TRAILING -->
+    <h3 style="font-size:.9rem;color:var(--accent);margin:1.5rem 0 .75rem;text-transform:uppercase;letter-spacing:.05em;">🎯 SL / TP / Trailing</h3>
+    <div class="params-grid">
+      <div class="param"><label>Fixed SL (poin)</label><input type="number" id="sl" value="3000" step="10"></div>
+      <div class="param"><label>Fixed TP (poin)</label><input type="number" id="tp" value="6000" step="10"></div>
+      <div class="param"><label>Trailing Aktif (poin)</label><input type="number" id="trailAct" value="3000" step="10"></div>
+      <div class="param"><label>Trailing Gap (poin)</label><input type="number" id="trailGap" value="1500" step="10"></div>
+      <div class="param"><label>Trailing Step</label><input type="number" id="trailStep" value="100" step="1"></div>
+    </div>
+
+    <!-- FILTER -->
+    <h3 style="font-size:.9rem;color:var(--accent);margin:1.5rem 0 .75rem;text-transform:uppercase;letter-spacing:.05em;">🔍 Filter Sinyal</h3>
+    <div class="params-grid">
+      <div class="param"><label>RSI Period</label><input type="number" id="rsiPeriod" value="14" step="1"></div>
+      <div class="param"><label>RSI Buy Max</label><input type="number" id="rsiMax" value="65" step="1"></div>
+      <div class="param"><label>RSI Sell Min</label><input type="number" id="rsiMin" value="35" step="1"></div>
+      <div class="param"><label>EMA Fast</label><input type="number" id="emaFast" value="20" step="1"></div>
+      <div class="param"><label>EMA Slow</label><input type="number" id="emaSlow" value="50" step="1"></div>
+    </div>
+
+    <!-- SAFETY & EKSEKUSI -->
+    <h3 style="font-size:.9rem;color:var(--accent);margin:1.5rem 0 .75rem;text-transform:uppercase;letter-spacing:.05em;">🛡️ Safety & Eksekusi</h3>
+    <div class="params-grid">
+      <div class="param"><label>Hard Lock (detik)</label><input type="number" id="hardLock" value="300" step="30"></div>
+      <div class="param"><label>Spread (poin)</label><input type="number" id="spread" value="0" step="1" min="0"></div>
+    </div>
+
+    <div class="risk-preview" id="riskPreview"></div>
+
+    <div class="btn-row" style="margin-top:1.5rem;">
+      <button class="btn" id="runBtn" disabled>🚀 Jalankan Backtest</button>
+    </div>
+  </div>
+
+  <!-- HASIL -->
+  <div id="results">
+    <div class="card">
+      <h2>📊 Hasil Backtest <span class="badge" id="symbolBadge">-</span></h2>
+      <div class="metrics-grid" id="metricsGrid"></div>
+    </div>
+    <div class="chart-container"><canvas id="equityChart"></canvas></div>
+    <div class="card">
+      <h2>📋 Daftar Trade <button class="btn secondary" id="downloadBtn" style="float:right;padding:.4rem .8rem;font-size:.8rem;">⬇️ Download CSV</button></h2>
+      <div class="trades-container">
+        <table>
+          <thead><tr>
+            <th>#</th><th>Dir</th><th>Open</th><th>Entry</th><th>Exit</th>
+            <th>Reason</th><th>Points</th><th>USD</th><th>Pattern</th><th>Trend</th>
+          </tr></thead>
+          <tbody id="tradesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    ⚠️ Backtest ≠ hasil live. Slippage & kondisi market berubah tetap berpengaruh.<br>
+    Powered by <a href="https://pyodide.org" target="_blank" style="color:var(--accent);">Pyodide</a> ·
+    <a href="https://www.chartjs.org" target="_blank" style="color:var(--accent);">Chart.js</a>
+  </div>
+</div>
+
+<script>
+let pyodide = null, pyodideReady = false, csvText = null, lastResult = null, chartInstance = null;
+const $ = id => document.getElementById(id);
+
+const PRESETS = {
+  BTCUSD: {point_size:0.01,   vpp:0.01,  sl:3000, tp:6000, trailAct:3000, trailGap:1500, trailStep:100, lot:1.0},
+  ETHUSD: {point_size:0.01,   vpp:0.01,  sl:3000, tp:6000, trailAct:3000, trailGap:1500, trailStep:100, lot:1.0},
+  XAUUSD: {point_size:0.01,   vpp:1.0,   sl:3000, tp:6000, trailAct:3000, trailGap:1500, trailStep:100, lot:0.01},
+  XAGUSD: {point_size:0.001,  vpp:5.0,   sl:500,  tp:1000, trailAct:500,  trailGap:250,  trailStep:10,  lot:0.10},
+  EURUSD: {point_size:0.00001,vpp:1.0,   sl:500,  tp:1000, trailAct:500,  trailGap:250,  trailStep:10,  lot:0.10},
+  GBPUSD: {point_size:0.00001,vpp:1.0,   sl:500,  tp:1000, trailAct:500,  trailGap:250,  trailStep:10,  lot:0.10},
+  AUDUSD: {point_size:0.00001,vpp:1.0,   sl:500,  tp:1000, trailAct:500,  trailGap:250,  trailStep:10,  lot:0.10},
+  USDJPY: {point_size:0.001,  vpp:0.67,  sl:500,  tp:1000, trailAct:500,  trailGap:250,  trailStep:10,  lot:0.10},
+  US30:   {point_size:0.1,    vpp:0.1,   sl:3000, tp:6000, trailAct:3000, trailGap:1500, trailStep:100, lot:0.10},
+  NAS100: {point_size:0.1,    vpp:0.1,   sl:3000, tp:6000, trailAct:3000, trailGap:1500, trailStep:100, lot:0.10},
+  SPX500: {point_size:0.1,    vpp:0.1,   sl:3000, tp:6000, trailAct:3000, trailGap:1500, trailStep:100, lot:0.10},
+};
+
+// Mapping: nama konstanta di kode bot → id field di form
+const FIELD_MAP = {
+  'POINT_SIZE':                  'pointSize',
+  'FIXED_SL_POINTS':             'sl',
+  'FIXED_TP_POINTS':             'tp',
+  'JUMLAH_LOT':                  'lot',
+  'TRAILING_ACTIVATION_POINTS':  'trailAct',
+  'TRAILING_GAP_POINTS':         'trailGap',
+  'TRAILING_STEP':               'trailStep',
+  'RSI_PERIOD':                  'rsiPeriod',
+  'RSI_BUY_MAX':                 'rsiMax',
+  'RSI_SELL_MIN':                'rsiMin',
+  'EMA_FAST':                    'emaFast',
+  'EMA_SLOW':                    'emaSlow',
+  'HARD_LOCK_SECONDS':           'hardLock',
+};
+
+// Symbol bot → preset instrumen
+const SYMBOL_TO_PRESET = {
+  'BTC': 'BTCUSD', 'BTCUSD': 'BTCUSD', 'BTC-USD': 'BTCUSD',
+  'ETH': 'ETHUSD', 'ETHUSD': 'ETHUSD', 'ETH-USD': 'ETHUSD',
+  'XAU': 'XAUUSD', 'XAUUSD': 'XAUUSD', 'GOLD': 'XAUUSD', 'GC=F': 'XAUUSD',
+  'XAG': 'XAGUSD', 'XAGUSD': 'XAGUSD', 'SILVER': 'XAGUSD', 'SI=F': 'XAGUSD',
+  'EURUSD': 'EURUSD', 'EURUSD=X': 'EURUSD',
+  'GBPUSD': 'GBPUSD', 'GBPUSD=X': 'GBPUSD',
+  'AUDUSD': 'AUDUSD', 'AUDUSD=X': 'AUDUSD',
+  'USDJPY': 'USDJPY', 'USDJPY=X': 'USDJPY',
+  'US30': 'US30', 'DJI': 'US30', '^DJI': 'US30',
+  'NAS100': 'NAS100', 'NDX': 'NAS100', '^NDX': 'NAS100',
+  'SPX500': 'SPX500', 'SPX': 'SPX500', '^GSPC': 'SPX500',
+};
+
+function setStatus(msg, type='loading') {
+  const el = $('status'); el.textContent = msg; el.className = 'status ' + type;
+}
+
+// Tab switching
+$('tabPasteBtn').onclick = () => {
+  $('tabPaste').style.display = 'block';
+  $('tabManual').style.display = 'none';
+  $('tabPasteBtn').classList.add('active');
+  $('tabManualBtn').classList.remove('active');
+};
+$('tabManualBtn').onclick = () => {
+  $('tabPaste').style.display = 'none';
+  $('tabManual').style.display = 'block';
+  $('tabManualBtn').classList.add('active');
+  $('tabPasteBtn').classList.remove('active');
+};
+
+function applyPreset(name) {
+  if (!PRESETS[name]) return;
+  const p = PRESETS[name];
+  $('pointSize').value = p.point_size;
+  $('valuePerPoint').value = p.vpp;
+  $('sl').value = p.sl;
+  $('tp').value = p.tp;
+  $('trailAct').value = p.trailAct;
+  $('trailGap').value = p.trailGap;
+  $('trailStep').value = p.trailStep;
+  $('lot').value = p.lot;
+  updateRiskPreview();
+}
+
+function updateRiskPreview() {
+  const sl = parseFloat($('sl').value)||0;
+  const tp = parseFloat($('tp').value)||0;
+  const pt = parseFloat($('pointSize').value)||0.01;
+  const vpp = parseFloat($('valuePerPoint').value)||0.01;
+  const lot = parseFloat($('lot').value)||1;
+  const slRisk = sl * vpp * lot;
+  const tpReward = tp * vpp * lot;
+  const rr = slRisk > 0 ? (tpReward/slRisk).toFixed(2) : '-';
+  $('riskPreview').textContent =
+    `SL: ${sl} poin = ${(sl*pt).toFixed(5)} harga | Risk @ SL: $${slRisk.toFixed(2)} per ${lot} lot  ·  ` +
+    `TP: ${tp} poin | Reward: $${tpReward.toFixed(2)}  ·  R:R 1:${rr}`;
+}
+
+['sl','tp','pointSize','valuePerPoint','lot'].forEach(id =>
+  $(id).addEventListener('input', updateRiskPreview));
+
+$('presetSelect').addEventListener('change', e => {
+  if (e.target.value !== 'CUSTOM') applyPreset(e.target.value);
+});
+
+// Init Pyodide
+async function initPyodide() {
+  try {
+    pyodide = await loadPyodide();
+    setStatus('⏳ Memasang pandas & numpy...', 'loading');
+    await pyodide.loadPackage(['pandas', 'numpy']);
+    setStatus('⏳ Memuat engine backtest...', 'loading');
+    const resp = await fetch('./backtest.py');
+    if (!resp.ok) throw new Error('Gagal fetch backtest.py (HTTP ' + resp.status + ')');
+    const code = await resp.text();
+    pyodide.FS.writeFile('/home/pyodide/backtest.py', code);
+    await pyodide.runPythonAsync(`
+import sys
+sys.path.insert(0, '/home/pyodide')
+import backtest
+    `);
+    pyodideReady = true;
+    $('runBtn').disabled = false;
+    $('demoBtn').disabled = false;
+    $('extractBtn').disabled = false;
+    setStatus('✅ Siap! Upload CSV, paste bot code atau isi manual, lalu jalankan.', 'success');
+  } catch (e) {
+    console.error(e);
+    setStatus('❌ Gagal memuat: ' + e.message, 'error');
+  }
+}
+
+// Upload
+const uploadArea = $('uploadArea'), fileInput = $('csvFile');
+uploadArea.addEventListener('click', () => fileInput.click());
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault(); uploadArea.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+async function handleFile(file) {
+  if (!file.name.endsWith('.csv')) { alert('File harus .csv'); return; }
+  csvText = await file.text();
+  const rows = csvText.trim().split('\n').length - 1;
+  $('fileInfo').classList.add('active');
+  $('fileInfo').innerHTML = `📄 <strong>${file.name}</strong> — ${(file.size/1024).toFixed(1)} KB, ${rows} baris`;
+}
+
+// Demo
+$('demoBtn').addEventListener('click', async () => {
+  if (!pyodideReady) return;
+  setStatus('🎲 Generate data demo BTC...', 'loading');
+  try {
+    const csv = await pyodide.runPythonAsync(`
+import numpy as np, pandas as pd
+np.random.seed(42)
+n = 500
+base = 60000
+trend = np.linspace(0, 8000, n)
+noise = np.cumsum(np.random.randn(n) * 200)
+close = base + trend + noise
+open_ = np.concatenate([[close[0]], close[:-1]])
+high = np.maximum(open_, close) + np.abs(np.random.randn(n) * 150)
+low  = np.minimum(open_, close) - np.abs(np.random.randn(n) * 150)
+volume = np.random.randint(50, 500, n).astype(float)
+times = pd.date_range('2024-01-01', periods=n, freq='h')
+df = pd.DataFrame({'time': times, 'open': open_, 'high': high, 'low': low, 'close': close, 'volume': volume})
+df.to_csv(index=False)
+    `);
+    csvText = csv;
+    $('fileInfo').classList.add('active');
+    $('fileInfo').innerHTML = `🎲 <strong>Demo BTC</strong> — 500 bar (1 jam, trend naik)`;
+    $('presetSelect').value = 'BTCUSD';
+    applyPreset('BTCUSD');
+    setStatus('✅ Data demo BTC siap.', 'success');
+  } catch (e) { setStatus('❌ Error demo: ' + e.message, 'error'); }
+});
+
+// === EXTRACT PARAMETER DARI KODE BOT ===
+$('extractBtn').addEventListener('click', async () => {
+  const code = $('botCode').value.trim();
+  if (!code) { setStatus('❌ Paste kode bot dulu.', 'error'); return; }
+  if (!pyodideReady) { setStatus('❌ Pyodide belum siap.', 'error'); return; }
+
+  setStatus('🔍 Extract parameter dari kode...', 'loading');
+  try {
+    pyodide.globals.set('BOT_CODE', code);
+    const resultJSON = await pyodide.runPythonAsync(`
+import ast, json
+code = BOT_CODE
+try:
+    tree = ast.parse(code)
+except SyntaxError as e:
+    result = {'error': f'Syntax error: {e}'}
+else:
+    result = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    try:
+                        result[t.id] = ast.literal_eval(node.value)
+                    except Exception:
+                        pass
+    # Saring hanya tipe yang bisa di-JSON
+    result = {k: v for k, v in result.items() if isinstance(v, (int, float, str, bool))}
+json.dumps(result)
+    `);
+    const extracted = JSON.parse(resultJSON);
+    if (extracted.error) throw new Error(extracted.error);
+
+    renderExtracted(extracted);
+  } catch (e) {
+    setStatus('❌ Gagal extract: ' + e.message, 'error');
+  }
+});
+
+function renderExtracted(extracted) {
+  const applied = [];
+  const unknown = [];
+
+  // 1. Terapkan konstanta yang match FIELD_MAP
+  for (const [constName, fieldId] of Object.entries(FIELD_MAP)) {
+    if (extracted[constName] !== undefined) {
+      const val = extracted[constName];
+      const field = $(fieldId);
+      if (field) {
+        field.value = val;
+        field.classList.add('extracted');
+        setTimeout(() => field.classList.remove('extracted'), 3000);
+        applied.push({ constName, value: val, fieldId });
+      }
+    }
+  }
+
+  // 2. Auto-detect instrumen dari SYMBOL_YF / SYMBOL_POSISI
+  let detectedSymbol = null;
+  for (const key of ['SYMBOL_YF', 'SYMBOL_POSISI', 'SYMBOL']) {
+    if (extracted[key]) {
+      const raw = String(extracted[key]).toUpperCase();
+      if (SYMBOL_TO_PRESET[raw]) {
+        detectedSymbol = SYMBOL_TO_PRESET[raw];
+        break;
+      }
+    }
+  }
+  if (detectedSymbol) {
+    $('presetSelect').value = detectedSymbol;
+    applyPreset(detectedSymbol);
+  }
+
+  // 3. Tampilkan daftar konstanta lain yang terdeteksi (info saja)
+  for (const [k, v] of Object.entries(extracted)) {
+    if (!FIELD_MAP[k] && !['SYMBOL_YF','SYMBOL_POSISI','SYMBOL'].includes(k)) {
+      if (typeof v === 'number' || typeof v === 'string') {
+        unknown.push({ key: k, value: v });
+      }
+    }
+  }
+
+  updateRiskPreview();
+
+  // 4. Render report
+  const list = $('extractedList');
+  list.classList.add('active');
+  let html = `<h4>✅ ${applied.length} parameter diterapkan${detectedSymbol ? ' · 🎯 Instrumen: ' + detectedSymbol : ''}</h4>`;
+  if (applied.length > 0) {
+    html += '<div style="margin-bottom:.5rem;">';
+    applied.forEach(a => {
+      html += `<code>${a.constName} = ${a.value}</code>`;
+    });
+    html += '</div>';
+  } else {
+    html += '<div style="color:var(--red);">⚠️ Tidak ada konstanta yang match. Pastikan kode berisi variabel seperti <code>FIXED_SL_POINTS</code>, <code>POINT_SIZE</code>, dsb.</div>';
+  }
+  if (unknown.length > 0) {
+    html += `<div style="margin-top:.75rem;color:var(--muted);font-size:.8rem;">Konstanta lain terdeteksi (tidak di-map, info saja):</div>`;
+    html += '<div style="margin-top:.25rem;">';
+    unknown.slice(0, 20).forEach(u => {
+      html += `<code style="opacity:.6;">${u.key} = ${String(u.value).slice(0,30)}</code>`;
+    });
+    if (unknown.length > 20) html += `<code style="opacity:.6;">...+${unknown.length-20} lagi</code>`;
+    html += '</div>';
+  }
+  list.innerHTML = html;
+
+  setStatus(`✅ ${applied.length} parameter diekstrak dari kode bot. Lanjut jalankan backtest.`, 'success');
+}
+
+$('clearCodeBtn').onclick = () => {
+  $('botCode').value = '';
+  $('extractedList').classList.remove('active');
+};
+
+// === RUN BACKTEST ===
+$('runBtn').addEventListener('click', async () => {
+  if (!pyodideReady || !csvText) {
+    setStatus('❌ Upload CSV atau pakai Data Demo dulu.', 'error');
+    return;
+  }
+  const params = {
+    symbol_name: $('presetSelect').value,
+    point_size: parseFloat($('pointSize').value),
+    value_per_point_per_lot: parseFloat($('valuePerPoint').value),
+    lot: parseFloat($('lot').value),
+    fixed_sl_points: parseInt($('sl').value),
+    fixed_tp_points: parseInt($('tp').value),
+    trailing_activation_points: parseInt($('trailAct').value),
+    trailing_gap_points: parseInt($('trailGap').value),
+    trailing_step: parseInt($('trailStep').value),
+    rsi_period: parseInt($('rsiPeriod').value),
+    rsi_buy_max: parseFloat($('rsiMax').value),
+    rsi_sell_min: parseFloat($('rsiMin').value),
+    ema_fast: parseInt($('emaFast').value),
+    ema_slow: parseInt($('emaSlow').value),
+    hard_lock_seconds: parseInt($('hardLock').value),
+    spread_points: parseFloat($('spread').value)
+  };
+  setStatus('🚀 Menjalankan backtest...', 'loading');
+  $('runBtn').disabled = true;
+  try {
+    pyodide.globals.set('PARAMS_JSON', JSON.stringify(params));
+    pyodide.globals.set('CSV_TEXT', csvText);
+
+    const resultJSON = await pyodide.runPythonAsync(`
+import json, io
+import pandas as pd
+from backtest import normalize_df, run_backtest, Config
+
+PARAMS = json.loads(PARAMS_JSON)
+try:
+    df = normalize_df(pd.read_csv(io.StringIO(CSV_TEXT)))
+except Exception as e:
+    json.dumps({'ok': False, 'error': 'CSV parse error: ' + str(e)})
+else:
+    if len(df) < 100:
+        json.dumps({'ok': False, 'error': 'Data terlalu sedikit: ' + str(len(df)) + ' bar (minimal 100)'})
+    else:
+        cfg = Config(**PARAMS)
+        trades, metrics, equity = run_backtest(df, cfg)
+        m = {k: (float(v) if hasattr(v, 'item') or isinstance(v, (int, float)) else v) for k, v in metrics.items()}
+        trades_records = []
+        if len(trades) > 0:
+            t = trades.copy()
+            t['open_time'] = t['open_time'].astype(str)
+            t['close_time'] = t['close_time'].astype(str)
+            trades_records = t.to_dict('records')
+        json.dumps({
+            'ok': True, 'symbol': cfg.symbol_name, 'metrics': m,
+            'trades': trades_records, 'equity': [float(x) for x in equity.tolist()],
+            'times': [str(x) for x in df['time'].tolist()], 'bars': len(df)
+        })
+    `);
+
+    const result = JSON.parse(resultJSON);
+    if (!result.ok) throw new Error(result.error);
+    lastResult = result;
+    renderResults(result);
+    setStatus(`✅ Selesai — ${result.symbol} | ${result.bars} bar → ${result.trades.length} trade`, 'success');
+  } catch (e) {
+    console.error(e);
+    setStatus('❌ Error: ' + e.message, 'error');
+  } finally {
+    $('runBtn').disabled = false;
+  }
+});
+
+function renderResults(result) {
+  const m = result.metrics;
+  $('symbolBadge').textContent = result.symbol;
+  const cards = [
+    { l:'Total Trades', v:m.total_trades, c:'' },
+    { l:'Win / Loss / BE', v:`${m.wins} / ${m.losses} / ${m.breakeven}`, c:'' },
+    { l:'Win Rate', v:m.win_rate.toFixed(1)+'%', c:m.win_rate>=50?'green':'red' },
+    { l:'Total P/L (USD)', v:(m.total_usd>=0?'+':'')+m.total_usd.toFixed(2), c:m.total_usd>=0?'green':'red' },
+    { l:'Total Poin', v:(m.total_points>=0?'+':'')+m.total_points.toFixed(0), c:m.total_points>=0?'green':'red' },
+    { l:'Profit Factor', v:m.profit_factor.toFixed(2), c:m.profit_factor>=1?'green':'red' },
+    { l:'Avg Win', v:'+'+m.avg_win.toFixed(2), c:'green' },
+    { l:'Avg Loss', v:m.avg_loss.toFixed(2), c:'red' },
+    { l:'Expectancy', v:(m.expectancy>=0?'+':'')+m.expectancy.toFixed(2), c:m.expectancy>=0?'green':'red' },
+    { l:'Max Drawdown', v:m.max_drawdown_usd.toFixed(2), c:'red' },
+    { l:'Sharpe', v:m.sharpe.toFixed(2), c:'' },
+    { l:'Max Win Streak', v:m.max_win_streak, c:'green' },
+    { l:'Max Loss Streak', v:m.max_loss_streak, c:'red' },
+  ];
+  $('metricsGrid').innerHTML = cards.map(c =>
+    `<div class="metric-card"><div class="metric-label">${c.l}</div><div class="metric-value ${c.c}">${c.v}</div></div>`
+  ).join('');
+
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart($('equityChart'), {
+    type:'line',
+    data:{labels:result.times,datasets:[{label:'Equity (USD)',data:result.equity,
+      borderColor:'#f7931a',backgroundColor:'rgba(247,147,26,0.1)',
+      fill:true,tension:0.1,pointRadius:0,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{maxTicksLimit:8,color:'#8b8f9a'},grid:{color:'rgba(255,255,255,0.05)'}},
+              y:{ticks:{color:'#8b8f9a',callback:v=>'$'+v.toFixed(2)},grid:{color:'rgba(255,255,255,0.05)'}}}}
+  });
+
+  const body = $('tradesBody');
+  if (result.trades.length === 0) {
+    body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:#8b8f9a;">Tidak ada trade. Coba ubah parameter.</td></tr>';
+  } else {
+    body.innerHTML = result.trades.map(t => `
+      <tr>
+        <td>${t.trade_id}</td>
+        <td class="${t.direction==='buy'?'win':'loss'}">${t.direction.toUpperCase()}</td>
+        <td>${t.open_time}</td>
+        <td>${parseFloat(t.entry).toFixed(5)}</td>
+        <td>${parseFloat(t.exit_price).toFixed(5)}</td>
+        <td>${t.exit_reason}</td>
+        <td class="${t.points>=0?'win':'loss'}">${t.points>=0?'+':''}${parseFloat(t.points).toFixed(0)}</td>
+        <td class="${t.usd>=0?'win':'loss'}">${t.usd>=0?'+':''}$${Math.abs(parseFloat(t.usd)).toFixed(2)}</td>
+        <td>${t.pattern||'-'}</td>
+        <td>${t.trend||'-'}</td>
+      </tr>
+    `).join('');
+  }
+  $('results').style.display = 'block';
+  $('results').scrollIntoView({behavior:'smooth'});
+}
+
+$('downloadBtn').addEventListener('click', () => {
+  if (!lastResult || !lastResult.trades.length) return;
+  const trades = lastResult.trades;
+  const headers = Object.keys(trades[0]);
+  let csv = headers.join(',') + '\n';
+  trades.forEach(t => {
+    csv += headers.map(h => {
+      const v = String(t[h] ?? '');
+      return v.includes(',') || v.includes('"') ? '"' + v.replace(/"/g,'""') + '"' : v;
+    }).join(',') + '\n';
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `backtest_${lastResult.symbol}_trades.csv`; a.click();
+  URL.revokeObjectURL(url);
+});
+
+initPyodide();
+updateRiskPreview();
+</script>
+</body>
+</html>
